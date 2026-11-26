@@ -1,0 +1,25 @@
+{
+  "name": "@pulso/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/server.ts",
+    "build": "tsc --noEmit && tsup src/server.ts --format esm --target node24 --out-dir dist --no-splitting",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@pulso/shared": "*",
+    "fastify": "^5.6.0",
+    "pg": "^8.16.0",
+    "web-push": "^4.0.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.0",
+    "@types/web-push": "^3.6.4",
+    "tsup": "^8.5.0"
+  }
+}

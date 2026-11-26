@@ -1,0 +1,28 @@
+# Resource 2: one Git-connected Compose application. PostgreSQL is a separate Coolify database resource.
+services:
+  web:
+    build: { context: ., dockerfile: infra/web.Dockerfile }
+    expose: ["80"]
+    depends_on: { api: { condition: service_healthy } }
+    networks: [application, coolify]
+    restart: unless-stopped
+  api:
+    build: { context: ., dockerfile: infra/api.Dockerfile, target: runtime }
+    expose: ["3001"]
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      APP_ORIGIN: ${APP_ORIGIN:?Set the exact https app origin}
+      SETUP_KEY: ${SETUP_KEY:?Set a random setup key of at least 32 characters}
+      DATABASE_URL: ${DATABASE_URL:?Use the separate PostgreSQL resource internal URL}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    networks: [application, coolify]
+    restart: unless-stopped
+networks:
+  application:
+    internal: true
+  coolify:
+    external: true
+    name: ${COOLIFY_NETWORK:-coolify}

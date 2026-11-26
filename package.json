@@ -1,0 +1,28 @@
+{
+  "name": "pulso",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24.14.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm run dev -w @pulso/api\" \"npm run dev -w @pulso/web\"",
+    "build": "npm run build -w @pulso/api && npm run build -w @pulso/web",
+    "typecheck": "tsc --noEmit -p apps/api && tsc --noEmit -p apps/web",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:integration": "node --import tsx --test tests/integration.ts",
+    "demo": "node --env-file=.env scripts/seed-demo.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "concurrently": "^9.2.0",
+    "fake-indexeddb": "^6.2.8",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
