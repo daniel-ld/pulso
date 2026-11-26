@@ -50,3 +50,11 @@ Se registran explícitamente fuera de la paridad de esta primera versión: adjun
 ## Siguiente etapa de infraestructura
 
 Conectar el repositorio main a Coolify, crear PostgreSQL privado, aplicar APP_ORIGIN=https://pulso.samurai-suite.com y asignar ese dominio únicamente a web. Falta la URL/acceso al panel de Coolify para ejecutar y verificar ese despliegue. La cuenta personal de producción se creará desde cero; no se trasladan las credenciales de demostración.
+
+## Auditoría de experiencia y captura de tareas
+
+El usuario está realizando el despliegue de Coolify por su cuenta. Se diagnosticó por logs un SETUP_KEY demasiado corto; posteriormente informó un error Cloudflare 526 que requiere revisar el certificado del origen. No se ha confirmado desde esta revisión que la producción esté saludable.
+
+Se completó una revisión experta del checkout local y de las referencias visuales de Todoist proporcionadas por el usuario. Informe: [UX_AUDIT.md](UX_AUDIT.md). Prototipo independiente: [UX_CAPTURE_PROTOTYPE.html](UX_CAPTURE_PROTOTYPE.html).
+
+Hallazgos prioritarios: formulario inicial excesivo, desbordamiento horizontal móvil medido, pérdida del borrador con Escape, foco inicial en Cerrar y necesidad de confirmar tareas creadas fuera de la vista actual. Se propone separar captura inline/global del editor detallado, con chips, atributos progresivos y captura repetida mediante Enter. El prototipo se comprobó en navegador con entrada consecutiva, borrador y ancho móvil; no modifica Pulso ni sus datos. Las mejoras productivas están propuestas, no implementadas.
