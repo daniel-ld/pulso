@@ -58,3 +58,11 @@ El usuario está realizando el despliegue de Coolify por su cuenta. Se diagnosti
 Se completó una revisión experta del checkout local y de las referencias visuales de Todoist proporcionadas por el usuario. Informe: [UX_AUDIT.md](UX_AUDIT.md). Prototipo independiente: [UX_CAPTURE_PROTOTYPE.html](UX_CAPTURE_PROTOTYPE.html).
 
 Hallazgos prioritarios: formulario inicial excesivo, desbordamiento horizontal móvil medido, pérdida del borrador con Escape, foco inicial en Cerrar y necesidad de confirmar tareas creadas fuera de la vista actual. Se propone separar captura inline/global del editor detallado, con chips, atributos progresivos y captura repetida mediante Enter. El prototipo se comprobó en navegador con entrada consecutiva, borrador y ancho móvil; no modifica Pulso ni sus datos. Las mejoras productivas están propuestas, no implementadas.
+
+## Corrección móvil y verificación — 27 de noviembre de 2026
+
+Implementada la corrección del desbordamiento del editor en `99d2a32`: una columna hasta 760 px, controles que pueden encogerse, campos de 16 px y objetivos táctiles de al menos 44 px. Cabecera y acciones permanecen accesibles durante el desplazamiento vertical. La barra de presentación se adapta también a anchos pequeños. En escritorio se mantienen dos columnas.
+
+Verificación sobre el stack Docker local con el navegador integrado: anchos solicitados de 320, 375, 390 y 430 px, con anchos CSS efectivos de 277, 327, 341 y 377 px por la escala del navegador. En todos ellos el ancho desplazable de la página y del diálogo coincide con su ancho visible, y ambos botones quedan dentro del diálogo. Se comprobó además la repetición mensual con sus campos adicionales, sin guardar el borrador. A 1825 px efectivos el editor conserva dos columnas y no desborda.
+
+El build del frontend y la reconstrucción de la imagen web finalizaron correctamente. CI de `99d2a32` correcto: https://github.com/daniel-ld/pulso/actions/runs/45910355999. Pendientes: comprobación en teléfono físico, teclado virtual y despliegue manual en Coolify. Esta corrección no implementa todavía la captura rápida del prototipo.
