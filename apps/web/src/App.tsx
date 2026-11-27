@@ -110,6 +110,11 @@ const dateLabel = (date: string) =>
 const objectData = (v: unknown) => v as Record<string, unknown>;
 
 export default function App() {
+  const authorizationId = new URLSearchParams(window.location.search).get(
+    "connect",
+  );
+  const connecting =
+    !!authorizationId || window.location.pathname === "/connect/mcp";
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
@@ -119,10 +124,10 @@ export default function App() {
     (async () => {
       try {
         const { user } = await api("/me");
-        await openUser(user);
+        if (!connecting) await openUser(user);
         if (active) setUser(user);
       } catch (e) {
-        if (!(e as { status?: number }).status) {
+        if (!connecting && !(e as { status?: number }).status) {
           try {
             const cached = JSON.parse(
               localStorage.getItem("pulso-user") ?? "null",
@@ -151,9 +156,9 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [connecting]);
   const onUser = async (user: User) => {
-    await openUser(user);
+    if (!connecting) await openUser(user);
     setNeedsSetup(false);
     setUser(user);
   };
@@ -164,10 +169,7 @@ export default function App() {
         <span>Preparando tu espacio…</span>
       </div>
     );
-  const authorizationId = new URLSearchParams(window.location.search).get(
-    "connect",
-  );
-  if (authorizationId || window.location.pathname === "/connect/mcp")
+  if (connecting)
     return <McpConsent id={authorizationId} user={user} onUser={onUser} />;
   return user ? (
     <Workspace

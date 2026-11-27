@@ -94,3 +94,5 @@ Sustituidas las cinco confirmaciones del navegador por diálogos propios de Puls
 Corregido el flujo MCP sin sesión previa: `/connect/mcp` presenta su propio formulario de login junto con la identidad declarada del asistente y el contexto de permisos. El acceso solo se concede en un paso posterior explícito. Metadatos públicos de solicitud limitados a la aplicación, sin datos de cuenta ni tokens; aprobación protegida como antes. El recorrido sin sesión → login → consentimiento se comprobó en navegador sin autorizar a un asistente externo.
 
 17 pruebas de integración correctas, incluidas las nuevas comprobaciones de conservación de solicitud y ausencia de autorización implícita. Builds de API/frontend e imágenes Docker correctos. La entrega se publica en `main` para el webhook de Coolify; la conexión en cada cliente requiere la autorización del propietario.
+
+El flujo de conexión MCP se separó también del arranque de IndexedDB y de la sincronización de tareas: autenticar/autorizar no requiere almacenamiento offline ni restaura una identidad cacheada en caso de fallo de red.
