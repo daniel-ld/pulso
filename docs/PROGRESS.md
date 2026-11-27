@@ -80,3 +80,9 @@ Build de frontend e imagen Docker correctos. En navegador a tamaño móvil se ve
 Implementados Claro, Oscuro y Sistema en Ajustes. Preferencia local por dispositivo, actualización automática con el sistema y entre pestañas, aplicación antes del renderizado y soporte de arranque offline. Paleta compartida en listas, tablero, calendario, acceso, formularios, mensajes y diálogos; se conservan los colores personalizados de proyectos. Detalle y evidencia: [THEMES.md](THEMES.md).
 
 Build de frontend e imagen Docker correctos. Pasaron 8 pruebas de dominio y tema; se revisaron selección, persistencia, modo móvil, tablero y calendario en navegador, sin errores de consola. El despliegue se realiza por webhook al subir a `main`, según indicó el usuario; no requiere acceso manual al panel de Coolify.
+
+## MCP remoto — 27 de noviembre de 2026
+
+Implementado `/mcp` en el backend existente, publicado por el mismo Nginx y dominio. SDK oficial, Streamable HTTP, OAuth con PKCE y registro dinámico, tokens manuales con permisos de lectura o gestión, conexiones revocables desde Ajustes y consentimiento explícito después del inicio de sesión. No se añaden recursos de Coolify. Migración 3 y reglas de mutación compartidas con la sincronización; escrituras con idempotencia y versión esperada.
+
+16 pruebas de integración correctas (9 anteriores y 7 de MCP/OAuth), 8 pruebas de dominio/tema correctas y builds de API/frontend e imágenes Docker correctos. Revisados proxy local, ajustes y consentimiento móvil sin conceder acceso a un asistente externo. Documentación de conexión, herramientas, permisos y límites: [MCP.md](MCP.md). La conexión real desde cada asistente requiere que el propietario autorice su cuenta; no se crearon credenciales de producción durante estas pruebas.

@@ -2,6 +2,8 @@
 
 Repositorio: `git@github.com:daniel-ld/pulso.git`. Rama de despliegue: `main`. Dominio: `https://pulso.samurai-suite.com`.
 
+El MCP remoto se sirve en ese mismo dominio, ruta `/mcp`, por el Nginx de la app. No requiere otro recurso ni variables nuevas; conserva `APP_ORIGIN` exacto. El arranque aplica automáticamente la migración 3. El despliegue se activa por el webhook al actualizar `main`. Guía de clientes y autenticación: [MCP.md](MCP.md).
+
 Objetivo: dos recursos visibles en Coolify, **PostgreSQL** y **monorepo Pulso**, con un solo subdominio para la app. Requiere repositorio Git accesible por Coolify, subdominio con DNS al servidor y capacidad libre para los contenedores. Revisa RAM y disco antes de construir en un servidor con otras aplicaciones.
 
 ## Recurso 1 · PostgreSQL

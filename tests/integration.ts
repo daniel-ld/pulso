@@ -371,3 +371,661 @@ test("las suscripciones push rechazan destinos arbitrarios", async () => {
   });
   assert.equal(result.statusCode, 400);
 });
+
+// MCP uses the same disposable database and owner as the app tests above.
+import { createHash, randomBytes } from "node:crypto";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+let mcpAddress = "";
+const callbackUrl = "https://assistant.example.test/callback";
+const verifier = randomBytes(32).toString("base64url");
+const challenge = createHash("sha256").update(verifier).digest("base64url");
+async function oauthConnection(scope = "pulso:read pulso:write") {
+  const registered = await app.inject({
+    method: "POST",
+    url: "/oauth/register",
+    payload: {
+      client_name: "Asistente de prueba",
+      redirect_uris: [callbackUrl],
+      token_endpoint_auth_method: "none",
+    },
+  });
+  assert.equal(registered.statusCode, 201, registered.body);
+  const clientId = registered.json().client_id;
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: callbackUrl,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    resource: origin + "/mcp",
+    scope,
+    state: "state-echo-test",
+  });
+  const authorize = await app.inject({ url: "/oauth/authorize?" + params });
+  assert.equal(authorize.statusCode, 302, authorize.body);
+  const id = new URL(authorize.headers.location!).searchParams.get("connect")!;
+  return { clientId, params, id };
+}
+async function approveOAuth(scope?: string) {
+  const connection = await oauthConnection(scope);
+  const approved = await app.inject({
+    method: "POST",
+    url: "/api/integrations/authorize",
+    headers: headers(),
+    payload: { id: connection.id, approve: true },
+  });
+  assert.equal(approved.statusCode, 200, approved.body);
+  const callback = new URL(approved.json().redirectUrl);
+  assert.equal(callback.searchParams.get("state"), "state-echo-test");
+  return { ...connection, code: callback.searchParams.get("code")! };
+}
+async function exchange(
+  clientId: string,
+  code: string,
+  codeVerifier = verifier,
+  resource = origin + "/mcp",
+) {
+  return app.inject({
+    method: "POST",
+    url: "/oauth/token",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    payload: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code,
+      redirect_uri: callbackUrl,
+      code_verifier: codeVerifier,
+      resource,
+    }).toString(),
+  });
+}
+async function mcpClient(token: string) {
+  // The disposable test container/CI owns port 4173; use the real advertised
+  // authority rather than spoofing Host (fetch intentionally overrides it).
+  if (!mcpAddress) {
+    await app.listen({ port: 4173, host: "0.0.0.0" });
+    mcpAddress = origin;
+  }
+  const client = new Client({
+    name: "pulso-integration-test",
+    version: "1.0.0",
+  });
+  const transport = new StreamableHTTPClientTransport(
+    new URL(mcpAddress + "/mcp"),
+    {
+      requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    },
+  );
+  await client.connect(transport);
+  return client;
+}
+function mcpData(reply: any) {
+  return JSON.parse(reply.content[0].text);
+}
+
+test("MCP publica descubrimiento OAuth y exige bearer, host y origen válidos", async () => {
+  const meta = await app.inject({
+    url: "/.well-known/oauth-authorization-server",
+  });
+  assert.equal(meta.json().code_challenge_methods_supported[0], "S256");
+  const resource = await app.inject({
+    url: "/.well-known/oauth-protected-resource/mcp",
+  });
+  assert.equal(resource.json().resource, origin + "/mcp");
+  const noAuth = await app.inject({
+    method: "POST",
+    url: "/mcp",
+    headers: { host: new URL(origin).host },
+    payload: { jsonrpc: "2.0", id: 1, method: "tools/list" },
+  });
+  assert.equal(noAuth.statusCode, 401);
+  assert.match(
+    String(noAuth.headers["www-authenticate"]),
+    /resource_metadata=/,
+  );
+  const wrongHost = await app.inject({
+    url: "/mcp",
+    headers: { host: "attacker.test" },
+  });
+  assert.equal(wrongHost.statusCode, 403);
+  const wrongOrigin = await app.inject({
+    url: "/mcp",
+    headers: { host: new URL(origin).host, origin: "https://attacker.test" },
+  });
+  assert.equal(wrongOrigin.statusCode, 403);
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/oauth/register",
+        payload: {
+          redirect_uris: [
+            "https://user:secret@assistant.example.test/callback",
+          ],
+        },
+      })
+    ).statusCode,
+    400,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/oauth/register",
+        payload: { redirect_uris: ["http://attacker.test/callback"] },
+      })
+    ).statusCode,
+    400,
+  );
+});
+
+test("OAuth exige consentimiento autenticado, retorno registrado y PKCE; código de un solo uso", async () => {
+  const connection = await oauthConnection();
+  const bad = new URLSearchParams(connection.params);
+  bad.set("redirect_uri", "https://attacker.test");
+  assert.equal(
+    (await app.inject({ url: "/oauth/authorize?" + bad })).statusCode,
+    400,
+  );
+  bad.set("redirect_uri", callbackUrl);
+  bad.set("resource", "https://other.test/mcp");
+  assert.equal(
+    (await app.inject({ url: "/oauth/authorize?" + bad })).statusCode,
+    400,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations/authorize",
+        headers: { origin },
+        payload: { id: connection.id, approve: true },
+      })
+    ).statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations/authorize",
+        headers: { cookie: session, origin: "https://attacker.test" },
+        payload: { id: connection.id, approve: true },
+      })
+    ).statusCode,
+    403,
+  );
+  const denied = await app.inject({
+    method: "POST",
+    url: "/api/integrations/authorize",
+    headers: headers(),
+    payload: { id: connection.id, approve: false },
+  });
+  assert.equal(
+    new URL(denied.json().redirectUrl).searchParams.get("error"),
+    "access_denied",
+  );
+  assert.equal(
+    (
+      await app.inject({
+        url: "/api/integrations/authorize/" + connection.id,
+        headers: headers(),
+      })
+    ).statusCode,
+    404,
+  );
+  const approved = await approveOAuth();
+  assert.equal(
+    (await exchange(approved.clientId, approved.code, "x".repeat(43)))
+      .statusCode,
+    400,
+  );
+  assert.equal(
+    (
+      await exchange(
+        approved.clientId,
+        approved.code,
+        verifier,
+        "https://other.test/mcp",
+      )
+    ).statusCode,
+    400,
+  );
+  const token = await exchange(approved.clientId, approved.code);
+  assert.equal(token.statusCode, 200, token.body);
+  assert.ok(token.json().refresh_token);
+  assert.equal(
+    (await exchange(approved.clientId, approved.code)).statusCode,
+    400,
+  );
+});
+
+test("SDK MCP real lista herramientas, escribe de forma idempotente y sincroniza con la app", async () => {
+  const approved = await approveOAuth();
+  const tokens = (await exchange(approved.clientId, approved.code)).json();
+  const client = await mcpClient(tokens.access_token);
+  try {
+    const tools = await client.listTools();
+    assert.ok(tools.tools.some((t) => t.name === "pulso_create_task"));
+    const args = {
+      requestId: randomUUID(),
+      task: { title: "Tarea desde MCP", priority: 2 },
+    };
+    const first = await client.callTool({
+      name: "pulso_create_task",
+      arguments: args,
+    });
+    assert.ok(!first.isError, JSON.stringify(first));
+    const entity = mcpData(first).entity;
+    assert.equal(entity.data.projectId, inbox);
+    const second = await client.callTool({
+      name: "pulso_create_task",
+      arguments: args,
+    });
+    assert.equal(mcpData(second).entity.id, entity.id);
+    const edited = await client.callTool({
+      name: "pulso_update_task",
+      arguments: {
+        requestId: randomUUID(),
+        id: entity.id,
+        expectedVersion: entity.version,
+        changes: { description: "Cambio remoto" },
+      },
+    });
+    assert.equal(
+      mcpData(edited).entity.data.title,
+      "Tarea desde MCP",
+      "actualizar no rellena valores por defecto",
+    );
+    assert.equal(mcpData(edited).entity.data.priority, 2);
+    const stale = await client.callTool({
+      name: "pulso_update_task",
+      arguments: {
+        requestId: randomUUID(),
+        id: entity.id,
+        expectedVersion: entity.version,
+        changes: { title: "Antiguo" },
+      },
+    });
+    assert.equal(stale.isError, true);
+    const visible = (
+      await app.inject({ url: "/api/sync/pull?cursor=0", headers: headers() })
+    ).json();
+    assert.ok(
+      visible.entities.some(
+        (e: any) =>
+          e.id === entity.id && e.data.description === "Cambio remoto",
+      ),
+    );
+    const listed = mcpData(
+      await client.callTool({
+        name: "pulso_list_tasks",
+        arguments: { query: "desde MCP" },
+      }),
+    );
+    assert.ok(listed.tasks.some((e: any) => e.id === entity.id));
+    const foreign = (
+      await pool.query("SELECT id FROM entities WHERE owner_id<>$1 LIMIT 1", [
+        ownerId,
+      ])
+    ).rows[0].id;
+    assert.equal(
+      (await client.callTool({ name: "fetch", arguments: { id: foreign } }))
+        .isError,
+      true,
+    );
+    const search = mcpData(
+      await client.callTool({
+        name: "search",
+        arguments: { query: "desde MCP" },
+      }),
+    );
+    assert.ok(search.results.some((e: any) => e.id === entity.id));
+  } finally {
+    await client.close();
+  }
+});
+
+test("MCP respeta permisos de solo lectura y revocación inmediata de tokens", async () => {
+  const created = await app.inject({
+    method: "POST",
+    url: "/api/integrations/token",
+    headers: headers(),
+    payload: { name: "Solo lectura", access: "read" },
+  });
+  assert.equal(created.statusCode, 201);
+  const { token, id } = created.json();
+  const client = await mcpClient(token);
+  try {
+    const tools = await client.listTools();
+    assert.ok(!tools.tools.some((t) => t.name === "pulso_create_task"));
+    assert.equal(
+      (
+        await client.callTool({
+          name: "pulso_create_task",
+          arguments: {
+            requestId: randomUUID(),
+            task: { title: "No permitido" },
+          },
+        })
+      ).isError,
+      true,
+    );
+    const connections = (
+      await app.inject({ url: "/api/integrations", headers: headers() })
+    ).json();
+    assert.ok(!JSON.stringify(connections).includes(token));
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/integrations/token",
+          headers: { origin: "https://attacker.test", cookie: session },
+          payload: { name: "CSRF", access: "write" },
+        })
+      ).statusCode,
+      403,
+    );
+    await app.inject({
+      method: "POST",
+      url: "/api/integrations/revoke",
+      headers: headers(),
+      payload: { id },
+    });
+    await assert.rejects(() => client.listTools());
+  } finally {
+    await client.close();
+  }
+});
+
+test("OAuth rota refresh tokens y revoca toda la conexión ante reutilización", async () => {
+  const approved = await approveOAuth("pulso:read");
+  const tokens = (await exchange(approved.clientId, approved.code)).json();
+  const refresh = () =>
+    app.inject({
+      method: "POST",
+      url: "/oauth/token",
+      payload: {
+        grant_type: "refresh_token",
+        client_id: approved.clientId,
+        refresh_token: tokens.refresh_token,
+        resource: origin + "/mcp",
+      },
+    });
+  const renewed = await refresh();
+  assert.equal(renewed.statusCode, 200, renewed.body);
+  assert.notEqual(renewed.json().refresh_token, tokens.refresh_token);
+  assert.equal((await refresh()).statusCode, 400);
+  const revoked = await app.inject({
+    url: "/mcp",
+    headers: {
+      host: new URL(origin).host,
+      authorization: "Bearer " + renewed.json().access_token,
+    },
+  });
+  assert.equal(revoked.statusCode, 401);
+});
+
+test("MCP gestiona proyectos, etiquetas, secciones, recurrencia y papelera con las reglas de dominio", async () => {
+  const approved = await approveOAuth();
+  const tokens = (await exchange(approved.clientId, approved.code)).json();
+  const client = await mcpClient(tokens.access_token);
+  const call = async (name: string, args: any) => {
+    const reply = await client.callTool({
+      name,
+      arguments: { requestId: randomUUID(), ...args },
+    });
+    assert.ok(!reply.isError, JSON.stringify(reply));
+    return mcpData(reply);
+  };
+  try {
+    const project = (
+      await call("pulso_save_project", {
+        fields: { name: "Proyecto MCP", color: "#64748b" },
+      })
+    ).entity;
+    const label = (
+      await call("pulso_save_label", { fields: { name: "Etiqueta MCP" } })
+    ).entity;
+    const section = (
+      await call("pulso_save_section", {
+        fields: { name: "Sección MCP", projectId: project.id },
+      })
+    ).entity;
+    const task = (
+      await call("pulso_create_task", {
+        task: {
+          title: "Recurrente MCP",
+          projectId: project.id,
+          sectionId: section.id,
+          labelIds: [label.id],
+          scheduledDate: today("America/Mexico_City"),
+          recurrence: { frequency: "day", interval: 1, anchor: "calendar" },
+        },
+      })
+    ).entity;
+    const found = await call("pulso_list_tasks", {
+      projectId: project.id,
+      labelId: label.id,
+    });
+    assert.equal(found.tasks[0].id, task.id);
+    const completeArgs = {
+      requestId: randomUUID(),
+      id: task.id,
+      expectedVersion: task.version,
+      timeZone: "America/Mexico_City",
+    };
+    const first = await call("pulso_complete_task", completeArgs);
+    const retry = await call("pulso_complete_task", completeArgs);
+    assert.equal(first.entity.version, retry.entity.version);
+    assert.ok(first.entity.data.scheduledDate > task.data.scheduledDate);
+    assert.equal(
+      first.entity.data.scheduledDate,
+      retry.entity.data.scheduledDate,
+    );
+    assert.equal(
+      (
+        await client.callTool({
+          name: "pulso_complete_task",
+          arguments: { ...completeArgs, requestId: randomUUID() },
+        })
+      ).isError,
+      true,
+    );
+    const protectedInbox = await client.callTool({
+      name: "pulso_move_to_trash",
+      arguments: {
+        requestId: randomUUID(),
+        type: "project",
+        id: inbox,
+        expectedVersion: 1,
+      },
+    });
+    assert.equal(protectedInbox.isError, true);
+    const hasDependencies = await client.callTool({
+      name: "pulso_move_to_trash",
+      arguments: {
+        requestId: randomUUID(),
+        type: "project",
+        id: project.id,
+        expectedVersion: 1,
+      },
+    });
+    assert.equal(hasDependencies.isError, true);
+    const trashed = await call("pulso_move_to_trash", {
+      type: "task",
+      id: task.id,
+      expectedVersion: first.entity.version,
+    });
+    assert.ok(trashed.entity.deletedAt);
+    assert.equal(
+      (
+        await client.callTool({
+          name: "pulso_update_task",
+          arguments: {
+            requestId: randomUUID(),
+            id: task.id,
+            expectedVersion: trashed.entity.version,
+            changes: { title: "No resucitar" },
+          },
+        })
+      ).isError,
+      true,
+    );
+    assert.equal(
+      (await call("pulso_list_tasks", { projectId: project.id })).tasks.length,
+      0,
+    );
+    const restored = await call("pulso_restore_record", {
+      type: "task",
+      id: task.id,
+      expectedVersion: trashed.entity.version,
+    });
+    assert.equal(restored.entity.deletedAt, null);
+    const page = await call("pulso_list_tasks", { limit: 1 });
+    assert.equal(page.tasks.length, 1);
+    const next = await call("pulso_list_tasks", {
+      limit: 1,
+      cursor: page.nextCursor,
+    });
+    assert.notEqual(page.tasks[0].id, next.tasks[0].id);
+  } finally {
+    await client.close();
+  }
+});
+
+test("OAuth valida clientes confidenciales, expiración, permisos y revocación RFC7009", async () => {
+  const registered = await app.inject({
+    method: "POST",
+    url: "/oauth/register",
+    payload: {
+      client_name: "Confidencial",
+      redirect_uris: [callbackUrl],
+      token_endpoint_auth_method: "client_secret_basic",
+    },
+  });
+  assert.equal(registered.statusCode, 201, registered.body);
+  const creds = registered.json();
+  const q = new URLSearchParams({
+    response_type: "code",
+    client_id: creds.client_id,
+    redirect_uri: callbackUrl,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    scope: "pulso:read",
+  });
+  const start = await app.inject({ url: "/oauth/authorize?" + q });
+  const id = new URL(start.headers.location!).searchParams.get("connect")!;
+  const details = await app.inject({
+    url: "/api/integrations/authorize/" + id,
+    headers: headers(),
+  });
+  assert.equal(details.json().request.name, "Confidencial");
+  const allowed = await app.inject({
+    method: "POST",
+    url: "/api/integrations/authorize",
+    headers: headers(),
+    payload: { id, approve: true },
+  });
+  const code = new URL(allowed.json().redirectUrl).searchParams.get("code")!;
+  assert.equal(
+    (await exchange(creds.client_id, code)).statusCode,
+    401,
+    "un cliente confidencial exige su secreto",
+  );
+  const basic =
+    "Basic " +
+    Buffer.from(`${creds.client_id}:${creds.client_secret}`).toString("base64");
+  const granted = await app.inject({
+    method: "POST",
+    url: "/oauth/token",
+    headers: { authorization: basic },
+    payload: {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: callbackUrl,
+      code_verifier: verifier,
+    },
+  });
+  assert.equal(granted.statusCode, 200, granted.body);
+  assert.match(String(granted.headers["cache-control"]), /no-store/);
+  const token = granted.json().access_token;
+  const secretHashes = (
+    await pool.query("SELECT secret_hash FROM mcp_clients WHERE id=$1", [
+      creds.client_id,
+    ])
+  ).rows[0];
+  assert.notEqual(secretHashes.secret_hash, creds.client_secret);
+  assert.equal(
+    (
+      await app.inject({
+        url: "/mcp",
+        headers: {
+          host: new URL(origin).host,
+          authorization: "Bearer " + token,
+        },
+      })
+    ).statusCode,
+    405,
+  );
+  const revoked = await app.inject({
+    method: "POST",
+    url: "/oauth/revoke",
+    headers: { authorization: basic },
+    payload: { token },
+  });
+  assert.equal(revoked.statusCode, 200);
+  assert.equal(
+    (
+      await app.inject({
+        url: "/mcp",
+        headers: {
+          host: new URL(origin).host,
+          authorization: "Bearer " + token,
+        },
+      })
+    ).statusCode,
+    401,
+  );
+  const expiredRequest = await oauthConnection();
+  await pool.query(
+    "UPDATE mcp_auth_requests SET expires_at=now()-interval '1 second' WHERE id=$1",
+    [expiredRequest.id],
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations/authorize",
+        headers: headers(),
+        payload: { id: expiredRequest.id, approve: true },
+      })
+    ).statusCode,
+    404,
+  );
+  const issued = (
+    await app.inject({
+      method: "POST",
+      url: "/api/integrations/token",
+      headers: headers(),
+      payload: { name: "Caducado", access: "read" },
+    })
+  ).json();
+  await pool.query(
+    "UPDATE mcp_tokens SET expires_at=now()-interval '1 second' WHERE connection_id=$1",
+    [issued.id],
+  );
+  assert.equal(
+    (
+      await app.inject({
+        url: "/mcp",
+        headers: {
+          host: new URL(origin).host,
+          authorization: "Bearer " + issued.token,
+        },
+      })
+    ).statusCode,
+    401,
+  );
+});

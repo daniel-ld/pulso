@@ -2092,15 +2092,24 @@ kbd {
   margin: 10px 0 0;
   min-inline-size: 0;
 }
-.theme-picker legend { font-size: 0.875rem; font-weight: 600; }
-.theme-picker p, .theme-picker small {
+.theme-picker legend {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.theme-picker p,
+.theme-picker small {
   display: block;
   color: var(--muted);
   font-size: 0.8125rem;
   line-height: 1.7;
   margin-top: 8px;
 }
-.theme-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
 .theme-option {
   position: relative;
   align-items: center;
@@ -2122,10 +2131,166 @@ kbd {
   margin: 0;
   cursor: pointer;
 }
-.theme-option:has(input:checked) { border-color: var(--accent); background: var(--soft); color: var(--accent); }
-.theme-option:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 3px; }
-.theme-option:hover { background: var(--surface-hover); }
-.primary, .mobile-add, .logo-mark, .is-today .day-number { color: var(--on-accent); }
-.toast { color: var(--toast-text); }
-.toast > svg, .toast > button:not(.icon-button), .toast .icon-button { color: inherit; }
-input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+.theme-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--soft);
+  color: var(--accent);
+}
+.theme-option:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+.theme-option:hover {
+  background: var(--surface-hover);
+}
+.primary,
+.mobile-add,
+.logo-mark,
+.is-today .day-number {
+  color: var(--on-accent);
+}
+.toast {
+  color: var(--toast-text);
+}
+.toast > svg,
+.toast > button:not(.icon-button),
+.toast .icon-button {
+  color: inherit;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.integrations {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  border-block: 1px solid var(--line);
+  padding-block: 18px;
+}
+.integrations h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.integrations p,
+.integrations small {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+.integrations input,
+.integrations textarea,
+.integrations select {
+  width: 100%;
+  min-width: 0;
+}
+.integrations > .secondary {
+  align-self: flex-start;
+  white-space: normal;
+}
+.integration-token-form,
+.issued-token {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  min-width: 0;
+}
+.issued-token textarea {
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+.integration-connection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.integration-connection > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.integration-connection small {
+  display: block;
+}
+.integrations h4 {
+  font-size: 0.875rem;
+  margin: 0;
+}
+.consent-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.consent-card {
+  position: relative;
+  width: min(100%, 600px);
+  padding: 32px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.consent-card > svg {
+  color: var(--accent);
+}
+.consent-card h1 {
+  font-size: 1.5rem;
+  padding-right: 20px;
+}
+.consent-card h2 {
+  font-size: 1.125rem;
+  overflow-wrap: anywhere;
+}
+.consent-card p,
+.consent-card li {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.consent-card ul {
+  margin: 0;
+  padding-left: 24px;
+}
+.consent-destination {
+  background: var(--surface-soft);
+  padding: 14px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.consent-home {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+}
+@media (max-width: 760px) {
+  .integration-connection {
+    flex-wrap: wrap;
+  }
+  .consent-card {
+    padding: 24px 20px;
+  }
+  .consent-card .settings-actions > button {
+    flex: 1;
+    white-space: normal;
+  }
+}

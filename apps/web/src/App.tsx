@@ -74,7 +74,12 @@ import {
   type SyncState,
   type User,
 } from "./store";
-import { getThemePreference, setThemePreference, subscribeTheme } from "./theme";
+import {
+  getThemePreference,
+  setThemePreference,
+  subscribeTheme,
+} from "./theme";
+import { Integrations, McpConsent } from "./Integrations";
 
 type TaskEntity = Entity<Task>;
 type View = {
@@ -158,6 +163,11 @@ export default function App() {
         <span>Preparando tu espacio…</span>
       </div>
     );
+  const authorizationId = new URLSearchParams(window.location.search).get(
+    "connect",
+  );
+  if (user && authorizationId)
+    return <McpConsent id={authorizationId} user={user} />;
   return user ? (
     <Workspace
       user={user}
@@ -357,6 +367,28 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
     setSidebar(false);
   };
   useEffect(() => subscribe(setSync), []);
+  useEffect(() => {
+    const recordId = new URLSearchParams(window.location.search).get("record");
+    if (!recordId) return;
+    const record = entities.find((e) => e.id === recordId);
+    if (!record) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("record");
+    window.history.replaceState(null, "", url);
+    if (record.deletedAt) {
+      setSettings(true);
+      return;
+    }
+    if (record.type === "task") setEditor({ entity: record as TaskEntity });
+    else if (
+      record.type === "project" ||
+      record.type === "label" ||
+      record.type === "filter"
+    )
+      setView({ kind: record.type, id: record.id });
+    else if (record.type === "section")
+      setView({ kind: "project", id: (record.data as Section).projectId });
+  }, [entities]);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 6000);
@@ -2170,11 +2202,13 @@ function Settings({
           <legend>Apariencia</legend>
           <p>Elige cómo se ve Pulso en este dispositivo.</p>
           <div className="theme-options">
-            {([
-              ["light", "Claro", Sun],
-              ["dark", "Oscuro", Moon],
-              ["system", "Sistema", Monitor],
-            ] as const).map(([value, label, Icon]) => (
+            {(
+              [
+                ["light", "Claro", Sun],
+                ["dark", "Oscuro", Moon],
+                ["system", "Sistema", Monitor],
+              ] as const
+            ).map(([value, label, Icon]) => (
               <label className="theme-option" key={value}>
                 <input
                   type="radio"
@@ -2192,6 +2226,7 @@ function Settings({
             Sistema sigue automáticamente la apariencia de tu dispositivo.
           </small>
         </fieldset>
+        <Integrations />
         <h3>Datos y respaldos</h3>
         <p>
           La sincronización mantiene tus dispositivos al día. Un respaldo te

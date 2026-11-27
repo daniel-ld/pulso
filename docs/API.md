@@ -1,6 +1,8 @@
 # Contrato HTTP
 
-Todas las rutas pertenecen al mismo origen de la app. Las escrituras requieren JSON y `Origin` igual a APP_ORIGIN. Las rutas privadas requieren cookie `pulso_session`. Las respuestas privadas no se cachean.
+La API de la aplicación está bajo `/api/*`, en el mismo origen de la app. Sus escrituras requieren JSON y `Origin` igual a APP_ORIGIN. Las rutas privadas requieren cookie `pulso_session`. Las respuestas privadas no se cachean.
+
+El MCP remoto tiene un contrato de autenticación separado mediante bearer/OAuth en `/mcp`; no sustituye las cookies de las rutas web. Endpoints OAuth y gestión privada de conexiones: [MCP.md](MCP.md).
 
 | Ruta | Uso |
 | --- | --- |

@@ -7,7 +7,7 @@ if (!process.stdin.isTTY)
   throw new Error("La recuperación requiere una terminal interactiva.");
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 const answer = await rl.question(
-  "Esto cambiará la contraseña personal y cerrará todas las sesiones. Escribe RESTABLECER para continuar: ",
+  "Esto cambiará la contraseña personal, cerrará todas las sesiones y revocará las conexiones MCP. Escribe RESTABLECER para continuar: ",
 );
 rl.close();
 if (answer !== "RESTABLECER") process.exit(0);
@@ -26,6 +26,7 @@ try {
     rows[0].id,
   ]);
   await c.query("DELETE FROM sessions WHERE user_id=$1", [rows[0].id]);
+  await c.query("UPDATE mcp_connections SET revoked_at=now() WHERE owner_id=$1", [rows[0].id]);
   await c.query("COMMIT");
   console.log(
     `Cuenta recuperada: ${rows[0].email}\nNueva contraseña: ${password}\nGuárdala en tu gestor de contraseñas. No compartas esta salida.`,
