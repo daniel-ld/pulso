@@ -1088,3 +1088,97 @@ test("OAuth conserva la solicitud durante el login y no concede acceso sin confi
     404,
   );
 });
+
+test("recupera authorize atrapado por una PWA antigua y conserva el callback de Muse, state y PKCE", async () => {
+  const museRedirect = "https://agent.meta.ai/api/hatch/oauth/callback";
+  const registration = await app.inject({
+    method: "POST",
+    url: "/oauth/register",
+    payload: {
+      client_name: "Muse (prueba aislada)",
+      redirect_uris: [museRedirect],
+      token_endpoint_auth_method: "none",
+    },
+  });
+  assert.equal(registration.statusCode, 201, registration.body);
+  const clientId = registration.json().client_id;
+  const state = "muse-state/+?=sin-cambios";
+  const query = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: museRedirect,
+    scope: "pulso:read pulso:write",
+    state,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    resource: origin + "/mcp",
+  });
+  const recovery = await app.inject({ url: "/api/auth/mcp-start?" + query });
+  assert.equal(recovery.statusCode, 200, recovery.body);
+  assert.match(String(recovery.headers["content-type"]), /application\/json/);
+  const location = new URL(recovery.json().authorizationUrl);
+  assert.equal(location.pathname, "/connect/mcp");
+  const id = location.searchParams.get("connect")!;
+  const approved = await app.inject({
+    method: "POST",
+    url: "/api/integrations/authorize",
+    headers: headers(),
+    payload: { id, approve: true },
+  });
+  const callback = new URL(approved.json().redirectUrl);
+  assert.equal(callback.origin + callback.pathname, museRedirect);
+  assert.equal(callback.searchParams.get("state"), state);
+  const token = await app.inject({
+    method: "POST",
+    url: "/oauth/token",
+    payload: {
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code: callback.searchParams.get("code"),
+      redirect_uri: museRedirect,
+      code_verifier: verifier,
+      resource: origin + "/mcp",
+    },
+  });
+  assert.equal(token.statusCode, 200, token.body);
+  assert.equal(token.json().token_type, "Bearer");
+  const client = await mcpClient(token.json().access_token);
+  try {
+    assert.ok(
+      (await client.listTools()).tools.some(
+        (tool) => tool.name === "pulso_create_task",
+      ),
+    );
+  } finally {
+    await client.close();
+  }
+  const invalid = new URLSearchParams(query);
+  const secondRequest = await app.inject({
+    url: "/api/auth/mcp-start?" + query,
+  });
+  const secondId = new URL(
+    secondRequest.json().authorizationUrl,
+  ).searchParams.get("connect");
+  const denial = await app.inject({
+    method: "POST",
+    url: "/api/integrations/authorize",
+    headers: headers(),
+    payload: { id: secondId, approve: false },
+  });
+  const deniedCallback = new URL(denial.json().redirectUrl);
+  assert.equal(deniedCallback.origin + deniedCallback.pathname, museRedirect);
+  assert.equal(deniedCallback.searchParams.get("state"), state);
+  assert.equal(deniedCallback.searchParams.get("error"), "access_denied");
+  assert.equal(deniedCallback.searchParams.get("code"), null);
+  invalid.delete("code_challenge");
+  assert.equal(
+    (await app.inject({ url: "/api/auth/mcp-start?" + invalid })).statusCode,
+    400,
+  );
+  invalid.set("code_challenge", challenge);
+  invalid.set("redirect_uri", "https://unregistered.test/callback");
+  assert.equal(
+    (await app.inject({ url: "/api/auth/mcp-start?" + invalid })).statusCode,
+    400,
+  );
+});

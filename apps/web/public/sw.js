@@ -8,9 +8,15 @@ self.addEventListener('activate', event => {
 });
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+  // OAuth redirects and protocol endpoints belong to the network. Following
+  // their redirect inside respondWith can leave Window.location at authorize
+  // while returning the SPA HTML from the redirect destination.
+  const networkOnly = /^\/(api|oauth|mcp|\.well-known)(\/|$)/.test(url.pathname)
+    || url.pathname === '/connect/mcp' || url.searchParams.has('connect');
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin || networkOnly) return;
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request).then(response => {
+      if (response.redirected) return Response.redirect(response.url, 302);
       if (response.ok) { const copy = response.clone(); void caches.open(CACHE).then(c => c.put('/', copy)); } return response;
     }).catch(() => caches.match('/')));
   } else if (url.pathname.startsWith('/assets/') || url.pathname === '/theme-init.js') {

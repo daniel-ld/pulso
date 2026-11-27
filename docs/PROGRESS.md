@@ -96,3 +96,9 @@ Corregido el flujo MCP sin sesión previa: `/connect/mcp` presenta su propio for
 17 pruebas de integración correctas, incluidas las nuevas comprobaciones de conservación de solicitud y ausencia de autorización implícita. Builds de API/frontend e imágenes Docker correctos. La entrega se publica en `main` para el webhook de Coolify; la conexión en cada cliente requiere la autorización del propietario.
 
 El flujo de conexión MCP se separó también del arranque de IndexedDB y de la sincronización de tareas: autenticar/autorizar no requiere almacenamiento offline ni restaura una identidad cacheada en caso de fallo de red.
+
+## Aislamiento OAuth de la PWA — 27 de noviembre de 2026
+
+Contrastado el checklist de Muse: en producción los endpoints sí llegaban al backend; la llamada de prueba sin cliente válido/PKCE devolvía JSON 400. Se aisló OAuth/MCP/well-known/consentimiento del service worker y del fallback SPA, se preservaron redirecciones de navegación y se añadió recuperación para instalaciones que aún usan el worker anterior. Una URL técnica ya no puede terminar mostrando “Hoy” si recibe el frontend por un intermediario antiguo.
+
+29 pruebas correctas (11 de dominio/tema/worker y 18 de integración), incluidos callback exacto de Muse, state, PKCE, código → token → MCP y denegación. Builds e imágenes Docker correctos. Detalle de evidencia, límites y comprobaciones: [OAUTH_DIAGNOSTIC.md](OAUTH_DIAGNOSTIC.md). Ninguna cuenta externa ni token de producción se autorizó durante las pruebas.

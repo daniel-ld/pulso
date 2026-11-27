@@ -282,45 +282,57 @@ export function registerMcpAuth(app: FastifyInstance, origin: string) {
       });
     },
   );
+  const prepareAuthorization = async (query: unknown) => {
+    const q = z
+      .object({
+        response_type: z.literal("code"),
+        client_id: z.string().max(200),
+        redirect_uri: z.string().max(2048),
+        code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+        code_challenge_method: z.literal("S256"),
+        state: z.string().max(4096).optional(),
+        scope: z.string().max(200).optional(),
+        resource: z.string().max(2048).optional(),
+      })
+      .parse(query);
+    const client = (
+      await pool.query("SELECT * FROM mcp_clients WHERE id=$1", [q.client_id])
+    ).rows[0];
+    if (!client || !client.redirect_uris.includes(q.redirect_uri))
+      throw fail("invalid_request", "Cliente o retorno no registrado");
+    target(q.resource, resource);
+    const scope = scopeValue(q.scope);
+    await cleanup();
+    const id = secret();
+    await pool.query(
+      "INSERT INTO mcp_auth_requests(id,client_id,redirect_uri,scope,state,challenge,resource) VALUES($1,$2,$3,$4,$5,$6,$7)",
+      [
+        id,
+        q.client_id,
+        q.redirect_uri,
+        scope,
+        q.state ?? null,
+        q.code_challenge,
+        resource,
+      ],
+    );
+    return origin + "/connect/mcp?connect=" + id;
+  };
   app.get(
     "/oauth/authorize",
     { config: { rateLimit: { max: 60, timeWindow: "15 minutes" } } },
     async (req, reply) => {
-      const q = z
-        .object({
-          response_type: z.literal("code"),
-          client_id: z.string().max(200),
-          redirect_uri: z.string().max(2048),
-          code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-          code_challenge_method: z.literal("S256"),
-          state: z.string().max(4096).optional(),
-          scope: z.string().max(200).optional(),
-          resource: z.string().max(2048).optional(),
-        })
-        .parse(req.query);
-      const client = (
-        await pool.query("SELECT * FROM mcp_clients WHERE id=$1", [q.client_id])
-      ).rows[0];
-      if (!client || !client.redirect_uris.includes(q.redirect_uri))
-        throw fail("invalid_request", "Cliente o retorno no registrado");
-      target(q.resource, resource);
-      const scope = scopeValue(q.scope);
-      await cleanup();
-      const id = secret();
-      await pool.query(
-        "INSERT INTO mcp_auth_requests(id,client_id,redirect_uri,scope,state,challenge,resource) VALUES($1,$2,$3,$4,$5,$6,$7)",
-        [
-          id,
-          q.client_id,
-          q.redirect_uri,
-          scope,
-          q.state ?? null,
-          q.code_challenge,
-          resource,
-        ],
-      );
-      return reply.redirect(origin + "/connect/mcp?connect=" + id);
+      return reply.redirect(await prepareAuthorization(req.query));
     },
+  );
+  // Recovery for installed PWAs whose old service worker swallowed the HTTP
+  // redirect. /api is always network-only, even with that older worker.
+  app.get(
+    "/api/auth/mcp-start",
+    { config: { rateLimit: { max: 60, timeWindow: "15 minutes" } } },
+    async (req) => ({
+      authorizationUrl: await prepareAuthorization(req.query),
+    }),
   );
   const authorizationDetails = async (req: FastifyRequest) => {
     const { id } = z

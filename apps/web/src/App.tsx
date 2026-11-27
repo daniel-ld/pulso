@@ -81,6 +81,7 @@ import {
 } from "./theme";
 import { Integrations, McpConsent } from "./Integrations";
 import { useConfirmation } from "./Confirmation";
+import { OAuthEntry } from "./OAuthEntry";
 
 type TaskEntity = Entity<Task>;
 type View = {
@@ -110,6 +111,9 @@ const dateLabel = (date: string) =>
 const objectData = (v: unknown) => v as Record<string, unknown>;
 
 export default function App() {
+  const protocolEntry = /^\/(oauth|mcp|\.well-known)(\/|$)/.test(
+    window.location.pathname,
+  );
   const authorizationId = new URLSearchParams(window.location.search).get(
     "connect",
   );
@@ -120,6 +124,7 @@ export default function App() {
   const [needsSetup, setNeedsSetup] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
+    if (protocolEntry) return;
     let active = true;
     (async () => {
       try {
@@ -156,12 +161,13 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [connecting]);
+  }, [connecting, protocolEntry]);
   const onUser = async (user: User) => {
     if (!connecting) await openUser(user);
     setNeedsSetup(false);
     setUser(user);
   };
+  if (protocolEntry) return <OAuthEntry />;
   if (!ready)
     return (
       <div className="loading">

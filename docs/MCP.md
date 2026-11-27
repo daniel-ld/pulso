@@ -101,7 +101,7 @@ El registro tiene límites de frecuencia y un máximo de 1000 clientes en esta i
 
 ## Verificación
 
-- 17 pruebas de integración contra PostgreSQL desechable: las nueve anteriores y ocho de MCP/OAuth.
+- 18 pruebas de integración contra PostgreSQL desechable: las nueve anteriores y nueve de MCP/OAuth.
 - Cliente oficial MCP real sobre HTTP: descubrimiento de herramientas, lectura, creación, edición, reintento idempotente, versiones antiguas, aislamiento del propietario, permisos y revocación.
 - Recurrencia, proyectos, secciones, etiquetas, papelera, paginación, PKCE incorrecto, retorno/recurso incorrectos, consentimiento sin sesión/CSRF, código reutilizado, expiración, cliente confidencial, renovación y replay de refresh token.
 - Build de API/frontend e imágenes Docker correctos; dependencias de producción sin vulnerabilidades reportadas por npm en esta revisión.
@@ -113,5 +113,7 @@ El registro tiene límites de frecuencia y un máximo de 1000 clientes en esta i
 La primera implementación enviaba la solicitud al inicio de la app y mostraba el login genérico cuando no había sesión; el contexto de conexión solo se veía después. Ahora existe una pantalla dedicada con inicio de sesión integrado y una segunda acción explícita para autorizar. Se verificó en navegador con la cuenta de demostración: sesión cerrada → solicitud con nombre/permisos → login → consentimiento, conservando la misma solicitud y sin conceder acceso automáticamente. También se añadió una prueba de integración que verifica este límite y la cancelación posterior.
 
 La pantalla de conexión no abre IndexedDB ni sincroniza las tareas de la app, y no usa una identidad local guardada cuando falla el servidor. Para autenticarse y autorizar solo necesita la sesión del backend, de modo que la conexión no depende del almacenamiento offline del navegador que abrió el asistente.
+
+Las rutas del protocolo y del consentimiento se excluyen de la caché y del fallback offline. Para instalaciones con un service worker anterior, `/oauth/authorize` puede recuperar la solicitud mediante `/api/auth/mcp-start`, conservando cliente, callback, state y PKCE, sin abrir “Hoy” ni conceder acceso automáticamente. Diagnóstico del caso Muse y evidencia: [OAUTH_DIAGNOSTIC.md](OAUTH_DIAGNOSTIC.md).
 
 Referencia técnica: [autorización MCP](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization), [SDK TypeScript oficial](https://github.com/modelcontextprotocol/typescript-sdk).
