@@ -66,3 +66,11 @@ Implementada la corrección del desbordamiento del editor en `99d2a32`: una colu
 Verificación sobre el stack Docker local con el navegador integrado: anchos solicitados de 320, 375, 390 y 430 px, con anchos CSS efectivos de 277, 327, 341 y 377 px por la escala del navegador. En todos ellos el ancho desplazable de la página y del diálogo coincide con su ancho visible, y ambos botones quedan dentro del diálogo. Se comprobó además la repetición mensual con sus campos adicionales, sin guardar el borrador. A 1825 px efectivos el editor conserva dos columnas y no desborda.
 
 El build del frontend y la reconstrucción de la imagen web finalizaron correctamente. CI de `99d2a32` correcto: https://github.com/daniel-ld/pulso/actions/runs/45910355999. Pendientes: comprobación en teléfono físico, teclado virtual y despliegue manual en Coolify. Esta corrección no implementa todavía la captura rápida del prototipo.
+
+## Zoom de la PWA — 27 de noviembre de 2026
+
+Los controles editables de todas las pantallas, incluidos búsqueda, acceso y ajustes, usan al menos 16 px en móvil o con puntero táctil. El editor de tareas ya tenía esa medida, pero otros campos heredaban tamaños menores. En modo instalado (`display-mode: standalone`), la página y los diálogos usan `touch-action: pan-x pan-y` para permitir desplazamiento sin gestos de zoom de página. Se conserva el zoom del navegador fuera del modo instalado; no se interceptan los atajos de teclado ni eventos táctiles mediante JavaScript.
+
+Referencia del comportamiento de gestos: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action. El resultado con teclado virtual y gestos reales requiere comprobación en el teléfono; las preferencias de accesibilidad del sistema o navegador pueden prevalecer sobre la aplicación.
+
+Build de frontend e imagen Docker correctos. En navegador a tamaño móvil se verificó búsqueda a 16 px, título de tarea a 20 px y demás campos del editor a 16 px; el diálogo no tiene desbordamiento horizontal. La regla de gestos para modo instalado está presente en la hoja de estilos servida. No se simularon gestos físicos ni modo instalado con esta comprobación.
