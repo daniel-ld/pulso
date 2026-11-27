@@ -12,7 +12,7 @@ El cliente debe admitir MCP remoto HTTP y OAuth o cabeceras Bearer. No basta con
 
 1. En el asistente añade un servidor MCP remoto con la URL indicada, sin barra final.
 2. Selecciona OAuth y registro automático de cliente (Dynamic Client Registration). Pulso publica el descubrimiento necesario. No necesitas copiar tu contraseña ni un token al asistente.
-3. Se abrirá Pulso. Inicia sesión en tu cuenta si hace falta, revisa aplicación, permisos y URL de retorno, y pulsa **Permitir acceso**.
+3. Se abrirá la pantalla dedicada de conexión en Pulso (`/connect/mcp?connect=…`). Muestra el asistente, los permisos y la URL de retorno incluso sin sesión. Si hace falta, inicia sesión en el formulario de esa pantalla; la solicitud se conserva. Después revisa los permisos y pulsa **Permitir acceso**. Iniciar sesión por sí solo no autoriza la conexión.
 4. Regresa al asistente y activa las herramientas.
 
 En Claude, usa la configuración de conectores remotos. Si aparece la opción de identidad del cliente, elige **Register automatically / Registrar automáticamente**. Este servidor soporta registro dinámico, no documentos de identidad de cliente remotos (CIMD). Guía del proveedor: [conectores MCP remotos](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
@@ -91,6 +91,8 @@ Las fechas civiles usan `YYYY-MM-DD`; prioridad 1 es la más alta y 4 la normal.
 - `/.well-known/oauth-protected-resource/mcp` y `/.well-known/oauth-protected-resource`: recurso y servidor de autorización.
 - `/.well-known/oauth-authorization-server`: endpoints y capacidades OAuth.
 - `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`: registro, autorización, intercambio/renovación y revocación.
+- `/connect/mcp?connect=…`: pantalla de login y consentimiento. La URL completa se genera desde el asistente; abrir la ruta sin solicitud muestra una explicación, sin conceder permisos.
+- `GET /api/auth/mcp-request/:id`: metadatos públicos de la solicitud pendiente (nombre declarado del cliente, permisos y retorno), sin información de la cuenta, códigos ni tokens. Permite mostrar el contexto antes del login; la aprobación sigue requiriendo sesión y Origin válido.
 - `/api/integrations*`: gestión privada mediante sesión web y comprobación de Origin/JSON. Un bearer MCP no sustituye la sesión web.
 
 `APP_ORIGIN` debe seguir siendo exactamente `https://pulso.samurai-suite.com`. Los tokens se vinculan al recurso de ese origen; no se aceptan en otros recursos. Los clientes remotos de servidor pueden omitir Origin; si lo envían, debe coincidir con APP_ORIGIN. No se permite CORS de MCP desde orígenes web arbitrarios. Las rutas web anteriores conservan sus protecciones de sesión y CSRF. API y PostgreSQL siguen sin puertos públicos.
@@ -99,11 +101,15 @@ El registro tiene límites de frecuencia y un máximo de 1000 clientes en esta i
 
 ## Verificación
 
-- 16 pruebas de integración contra PostgreSQL desechable: las nueve anteriores y siete de MCP/OAuth.
+- 17 pruebas de integración contra PostgreSQL desechable: las nueve anteriores y ocho de MCP/OAuth.
 - Cliente oficial MCP real sobre HTTP: descubrimiento de herramientas, lectura, creación, edición, reintento idempotente, versiones antiguas, aislamiento del propietario, permisos y revocación.
 - Recurrencia, proyectos, secciones, etiquetas, papelera, paginación, PKCE incorrecto, retorno/recurso incorrectos, consentimiento sin sesión/CSRF, código reutilizado, expiración, cliente confidencial, renovación y replay de refresh token.
 - Build de API/frontend e imágenes Docker correctos; dependencias de producción sin vulnerabilidades reportadas por npm en esta revisión.
 - Proxy local: descubrimiento OAuth accesible. Pantallas de ajustes y consentimiento revisadas en móvil; sin desbordamiento horizontal ni errores de consola. La revisión visual no aprobó una conexión ni creó tokens en la base local principal.
 - Pendiente de una acción del propietario: conectar cada asistente en su propia cuenta y autorizarlo. Las pruebas no concedieron acceso a cuentas externas ni emitieron tokens de producción.
+
+## Corrección del flujo sin sesión
+
+La primera implementación enviaba la solicitud al inicio de la app y mostraba el login genérico cuando no había sesión; el contexto de conexión solo se veía después. Ahora existe una pantalla dedicada con inicio de sesión integrado y una segunda acción explícita para autorizar. Se verificó en navegador con la cuenta de demostración: sesión cerrada → solicitud con nombre/permisos → login → consentimiento, conservando la misma solicitud y sin conceder acceso automáticamente. También se añadió una prueba de integración que verifica este límite y la cancelación posterior.
 
 Referencia técnica: [autorización MCP](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization), [SDK TypeScript oficial](https://github.com/modelcontextprotocol/typescript-sdk).

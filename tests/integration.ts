@@ -1029,3 +1029,62 @@ test("OAuth valida clientes confidenciales, expiración, permisos y revocación 
     401,
   );
 });
+
+test("OAuth conserva la solicitud durante el login y no concede acceso sin confirmar", async () => {
+  const connection = await oauthConnection("pulso:read");
+  const publicDetails = await app.inject({
+    url: "/api/auth/mcp-request/" + connection.id,
+  });
+  assert.equal(publicDetails.statusCode, 200, publicDetails.body);
+  assert.deepEqual(Object.keys(publicDetails.json().request).sort(), [
+    "id",
+    "name",
+    "redirect_uri",
+    "scope",
+  ]);
+  assert.equal(
+    (await app.inject({ url: "/api/integrations/authorize/" + connection.id }))
+      .statusCode,
+    401,
+  );
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    headers: { origin },
+    payload: {
+      email: "prueba@example.test",
+      password: "long-test-password-123",
+    },
+  });
+  assert.equal(login.statusCode, 200, login.body);
+  const newSession = login.cookies[0].name + "=" + login.cookies[0].value;
+  const afterLogin = await app.inject({
+    url: "/api/integrations/authorize/" + connection.id,
+    headers: { cookie: newSession },
+  });
+  assert.equal(afterLogin.json().request.id, connection.id);
+  const grants = await pool.query(
+    "SELECT count(*) FROM mcp_connections WHERE client_id=$1",
+    [connection.clientId],
+  );
+  assert.equal(
+    Number(grants.rows[0].count),
+    0,
+    "iniciar sesión no implica aprobar permisos",
+  );
+  const denied = await app.inject({
+    method: "POST",
+    url: "/api/integrations/authorize",
+    headers: { origin, cookie: newSession },
+    payload: { id: connection.id, approve: false },
+  });
+  assert.equal(
+    new URL(denied.json().redirectUrl).searchParams.get("error"),
+    "access_denied",
+  );
+  assert.equal(
+    (await app.inject({ url: "/api/auth/mcp-request/" + connection.id }))
+      .statusCode,
+    404,
+  );
+});

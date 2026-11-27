@@ -80,6 +80,7 @@ import {
   subscribeTheme,
 } from "./theme";
 import { Integrations, McpConsent } from "./Integrations";
+import { useConfirmation } from "./Confirmation";
 
 type TaskEntity = Entity<Task>;
 type View = {
@@ -166,8 +167,8 @@ export default function App() {
   const authorizationId = new URLSearchParams(window.location.search).get(
     "connect",
   );
-  if (user && authorizationId)
-    return <McpConsent id={authorizationId} user={user} />;
+  if (authorizationId || window.location.pathname === "/connect/mcp")
+    return <McpConsent id={authorizationId} user={user} onUser={onUser} />;
   return user ? (
     <Workspace
       user={user}
@@ -323,6 +324,7 @@ function Auth({
 }
 
 function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const confirmAction = useConfirmation();
   const entities = useLiveQuery(() => db.entities.toArray(), []) ?? [];
   const pending =
     useLiveQuery(() => db.outbox.orderBy("localOrder").toArray(), []) ?? [];
@@ -551,9 +553,17 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           sectionId: entity.data.sectionId ?? undefined,
         })
       }
-      onDelete={() => {
-        if (confirm(`¿Mover “${entity.data.title}” a la papelera?`))
-          void run(() => mutate("task", entity.id, {}, "delete"));
+      onDelete={async () => {
+        if (
+          await confirmAction({
+            title: "¿Mover esta tarea a la papelera?",
+            subject: entity.data.title,
+            description: "Podrás recuperarla desde la papelera en Ajustes.",
+            confirmLabel: "Mover a la papelera",
+            icon: "trash",
+          })
+        )
+          await run(() => mutate("task", entity.id, {}, "delete"));
       }}
       onDrop={(id) => {
         const task = tasks.find((t) => t.id === id);
@@ -1212,9 +1222,13 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           onLogout={async () => {
             if (
               pending.length &&
-              !confirm(
-                "Hay cambios sin sincronizar. Permanecerán guardados aquí, pero no estarán en otros dispositivos. ¿Cerrar sesión?",
-              )
+              !(await confirmAction({
+                title: "¿Cerrar sesión con cambios pendientes?",
+                description:
+                  "Tus cambios seguirán guardados en este dispositivo, pero aún no estarán disponibles en los demás.",
+                confirmLabel: "Cerrar sesión",
+                icon: "logout",
+              }))
             )
               return;
             await run(async () => {
@@ -2100,6 +2114,7 @@ function Settings({
   onNotice: (s: string) => void;
   onLogout: () => Promise<void>;
 }) {
+  const confirmAction = useConfirmation();
   const theme = useSyncExternalStore(subscribeTheme, getThemePreference);
   const [busy, setBusy] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -2172,9 +2187,14 @@ function Settings({
       return;
     }
     if (
-      !confirm(
-        "Se combinará el respaldo con tus tareas actuales. Los registros existentes se actualizarán y los demás se conservarán. ¿Continuar?",
-      )
+      !(await confirmAction({
+        title: "¿Restaurar este respaldo?",
+        subject: file.name,
+        description:
+          "Se combinará con tus tareas actuales: los registros existentes se actualizarán y los demás se conservarán.",
+        confirmLabel: "Restaurar respaldo",
+        icon: "restore",
+      }))
     )
       return;
     setBusy(true);
@@ -2317,11 +2337,15 @@ function Settings({
                 </p>
                 <button
                   className="secondary"
-                  onClick={() => {
+                  onClick={async () => {
                     if (
-                      confirm(
-                        "¿Descartar los cambios pendientes de este registro y recuperar su versión del servidor?",
-                      )
+                      await confirmAction({
+                        title: "¿Recuperar la versión del servidor?",
+                        description:
+                          "Se descartarán los cambios pendientes de este registro. Tu alternativa local seguirá disponible en el respaldo.",
+                        confirmLabel: "Recuperar versión",
+                        icon: "restore",
+                      })
                     )
                       void discardRejected(op.entityId).catch((e) =>
                         onNotice(e.message),

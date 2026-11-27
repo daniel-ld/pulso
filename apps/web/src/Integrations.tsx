@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Plug, KeyRound, ShieldCheck, X } from "lucide-react";
 import { api, type User } from "./store";
+import { useConfirmation } from "./Confirmation";
 
 type Connection = {
   id: string;
@@ -11,6 +12,7 @@ type Connection = {
   manual: boolean;
 };
 export function Integrations() {
+  const confirmAction = useConfirmation();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [endpoint, setEndpoint] = useState("");
   const [error, setError] = useState("");
@@ -48,9 +50,15 @@ export function Integrations() {
   }
   async function revoke(connection: Connection) {
     if (
-      !confirm(
-        `¿Revocar el acceso de “${connection.name}”? El asistente dejará de acceder a Pulso.`,
-      )
+      !(await confirmAction({
+        title: "¿Desconectar este asistente?",
+        subject: connection.name,
+        description:
+          "Dejará de acceder a tus datos de Pulso. Para volver a usarlo tendrás que autorizar una nueva conexión.",
+        confirmLabel: "Revocar acceso",
+        icon: "disconnect",
+        tone: "danger",
+      }))
     )
       return;
     setBusy(true);
@@ -211,13 +219,27 @@ type Authorization = {
   scope: string;
   redirect_uri: string;
 };
-export function McpConsent({ id, user }: { id: string; user: User }) {
+export function McpConsent({
+  id,
+  user,
+  onUser,
+}: {
+  id: string | null;
+  user: User | null;
+  onUser: (user: User) => Promise<void>;
+}) {
   const [request, setRequest] = useState<Authorization | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   useEffect(() => {
+    if (!id) {
+      setError("Falta la solicitud de conexión. Iníciala desde tu asistente.");
+      return;
+    }
     let active = true;
-    void api("/integrations/authorize/" + encodeURIComponent(id))
+    void api("/auth/mcp-request/" + encodeURIComponent(id))
       .then((data) => {
         if (active) setRequest(data.request);
       })
@@ -228,6 +250,20 @@ export function McpConsent({ id, user }: { id: string; user: User }) {
       active = false;
     };
   }, [id]);
+  async function login(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const { user: signedIn } = await api("/auth/login", { email, password });
+      setPassword("");
+      await onUser(signedIn);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function decide(approve: boolean) {
     setBusy(true);
     setError("");
@@ -250,9 +286,16 @@ export function McpConsent({ id, user }: { id: string; user: User }) {
         </a>
         <ShieldCheck size={32} aria-hidden="true" />
         <h1>Conectar un asistente a Pulso</h1>
-        <p>
-          Sesión de <strong>{user.name}</strong> · {user.email}
-        </p>
+        {user ? (
+          <p>
+            Sesión de <strong>{user.name}</strong> · {user.email}
+          </p>
+        ) : (
+          <p>
+            Inicia sesión en Pulso para conectar tu asistente. Después podrás
+            revisar y autorizar sus permisos.
+          </p>
+        )}
         {request ? (
           <>
             <h2>{request.name}</h2>
@@ -275,26 +318,66 @@ export function McpConsent({ id, user }: { id: string; user: User }) {
             </p>
             <code className="consent-destination">{request.redirect_uri}</code>
             <p>Podrás revocar esta conexión en Ajustes → Asistentes de IA.</p>
-            <div className="settings-actions">
-              <button
-                className="secondary"
-                disabled={busy}
-                onClick={() => {
-                  void decide(false);
+            {!user ? (
+              <form
+                className="mcp-login-form"
+                onSubmit={(event) => {
+                  void login(event);
                 }}
               >
-                Cancelar conexión
-              </button>
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() => {
-                  void decide(true);
-                }}
-              >
-                {busy ? "Conectando…" : "Permitir acceso"}
-              </button>
-            </div>
+                <h3>Iniciar sesión en Pulso</h3>
+                <label>
+                  Correo electrónico
+                  <input
+                    type="email"
+                    autoComplete="username"
+                    required
+                    maxLength={254}
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Contraseña
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    minLength={12}
+                    maxLength={128}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </label>
+                <button className="primary" disabled={busy}>
+                  {busy ? "Iniciando sesión…" : "Iniciar sesión y continuar"}
+                </button>
+                <a className="text-button" href="/">
+                  Volver a Pulso sin conectar
+                </a>
+              </form>
+            ) : (
+              <div className="settings-actions">
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    void decide(false);
+                  }}
+                >
+                  Cancelar conexión
+                </button>
+                <button
+                  className="primary"
+                  disabled={busy}
+                  onClick={() => {
+                    void decide(true);
+                  }}
+                >
+                  {busy ? "Conectando…" : "Permitir acceso"}
+                </button>
+              </div>
+            )}
           </>
         ) : (
           !error && <p role="status">Preparando la solicitud…</p>

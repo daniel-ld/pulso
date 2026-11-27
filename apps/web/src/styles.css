@@ -2294,3 +2294,106 @@ textarea::placeholder {
     white-space: normal;
   }
 }
+
+.confirmation-dialog {
+  width: min(440px, calc(100% - 32px));
+  border-radius: 18px;
+}
+.confirmation-body {
+  position: relative;
+  padding: 28px;
+}
+.confirmation-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+}
+.confirmation-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  color: var(--accent);
+  background: var(--soft);
+  margin-bottom: 20px;
+}
+.confirmation-dialog h2 {
+  font:
+    700 1.25rem/1.4 "Manrope",
+    system-ui;
+  letter-spacing: -0.4px;
+  padding-right: 8px;
+  overflow-wrap: anywhere;
+}
+.confirmation-subject {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+.confirmation-description {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+.confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 26px;
+}
+.confirmation-actions button {
+  min-height: 44px;
+  white-space: normal;
+}
+.confirmation-danger .confirmation-symbol {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.confirmation-danger .primary {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: none;
+}
+:root[data-theme="dark"] .confirmation-danger .primary {
+  color: #32131c;
+}
+.confirmation-danger .primary:hover {
+  filter: brightness(0.94);
+}
+@media (max-width: 760px) {
+  .confirmation-body {
+    padding: 24px 20px 20px;
+  }
+  .confirmation-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+  .confirmation-actions button {
+    width: 100%;
+  }
+}
+.mcp-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.mcp-login-form h3 {
+  font-size: 1rem;
+}
+.mcp-login-form input {
+  width: 100%;
+  min-width: 0;
+}

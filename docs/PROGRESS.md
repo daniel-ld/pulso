@@ -86,3 +86,11 @@ Build de frontend e imagen Docker correctos. Pasaron 8 pruebas de dominio y tema
 Implementado `/mcp` en el backend existente, publicado por el mismo Nginx y dominio. SDK oficial, Streamable HTTP, OAuth con PKCE y registro dinámico, tokens manuales con permisos de lectura o gestión, conexiones revocables desde Ajustes y consentimiento explícito después del inicio de sesión. No se añaden recursos de Coolify. Migración 3 y reglas de mutación compartidas con la sincronización; escrituras con idempotencia y versión esperada.
 
 16 pruebas de integración correctas (9 anteriores y 7 de MCP/OAuth), 8 pruebas de dominio/tema correctas y builds de API/frontend e imágenes Docker correctos. Revisados proxy local, ajustes y consentimiento móvil sin conceder acceso a un asistente externo. Documentación de conexión, herramientas, permisos y límites: [MCP.md](MCP.md). La conexión real desde cada asistente requiere que el propietario autorice su cuenta; no se crearon credenciales de producción durante estas pruebas.
+
+## Cierre de confirmaciones y autenticación MCP — 27 de noviembre de 2026
+
+Sustituidas las cinco confirmaciones del navegador por diálogos propios de Pulso, con claro/oscuro, mensajes específicos, Cancelar enfocado inicialmente, Escape, restauración de foco y cola de solicitudes. Se revisaron papelera y revocación en escritorio/móvil. La confirmación efectiva se probó con un registro local sin credenciales; las tareas permanecieron intactas. Detalles: [CONFIRMATIONS.md](CONFIRMATIONS.md).
+
+Corregido el flujo MCP sin sesión previa: `/connect/mcp` presenta su propio formulario de login junto con la identidad declarada del asistente y el contexto de permisos. El acceso solo se concede en un paso posterior explícito. Metadatos públicos de solicitud limitados a la aplicación, sin datos de cuenta ni tokens; aprobación protegida como antes. El recorrido sin sesión → login → consentimiento se comprobó en navegador sin autorizar a un asistente externo.
+
+17 pruebas de integración correctas, incluidas las nuevas comprobaciones de conservación de solicitud y ausencia de autorización implícita. Builds de API/frontend e imágenes Docker correctos. La entrega se publica en `main` para el webhook de Coolify; la conexión en cada cliente requiere la autorización del propietario.

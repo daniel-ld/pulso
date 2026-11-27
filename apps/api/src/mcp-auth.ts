@@ -319,10 +319,10 @@ export function registerMcpAuth(app: FastifyInstance, origin: string) {
           resource,
         ],
       );
-      return reply.redirect(origin + "/?connect=" + id);
+      return reply.redirect(origin + "/connect/mcp?connect=" + id);
     },
   );
-  app.get("/api/integrations/authorize/:id", async (req) => {
+  const authorizationDetails = async (req: FastifyRequest) => {
     const { id } = z
       .object({ id: z.string().regex(/^[A-Za-z0-9_-]{43}$/) })
       .parse(req.params);
@@ -339,7 +339,15 @@ export function registerMcpAuth(app: FastifyInstance, origin: string) {
         "La solicitud expiró. Vuelve a conectar desde el asistente.",
       );
     return { request: row };
-  });
+  };
+  // Only public request metadata: no account information, codes or tokens.
+  // Approval remains protected by the web session and Origin checks.
+  app.get(
+    "/api/auth/mcp-request/:id",
+    { config: { rateLimit: { max: 60, timeWindow: "15 minutes" } } },
+    authorizationDetails,
+  );
+  app.get("/api/integrations/authorize/:id", authorizationDetails);
   app.post("/api/integrations/authorize", async (req) => {
     const body = z
       .object({
