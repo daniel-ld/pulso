@@ -74,3 +74,9 @@ Los controles editables de todas las pantallas, incluidos búsqueda, acceso y aj
 Referencia del comportamiento de gestos: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action. El resultado con teclado virtual y gestos reales requiere comprobación en el teléfono; las preferencias de accesibilidad del sistema o navegador pueden prevalecer sobre la aplicación.
 
 Build de frontend e imagen Docker correctos. En navegador a tamaño móvil se verificó búsqueda a 16 px, título de tarea a 20 px y demás campos del editor a 16 px; el diálogo no tiene desbordamiento horizontal. La regla de gestos para modo instalado está presente en la hoja de estilos servida. No se simularon gestos físicos ni modo instalado con esta comprobación.
+
+## Apariencia — 27 de noviembre de 2026
+
+Implementados Claro, Oscuro y Sistema en Ajustes. Preferencia local por dispositivo, actualización automática con el sistema y entre pestañas, aplicación antes del renderizado y soporte de arranque offline. Paleta compartida en listas, tablero, calendario, acceso, formularios, mensajes y diálogos; se conservan los colores personalizados de proyectos. Detalle y evidencia: [THEMES.md](THEMES.md).
+
+Build de frontend e imagen Docker correctos. Pasaron 8 pruebas de dominio y tema; se revisaron selección, persistencia, modo móvil, tablero y calendario en navegador, sin errores de consola. El despliegue se realiza por webhook al subir a `main`, según indicó el usuario; no requiere acceso manual al panel de Coolify.

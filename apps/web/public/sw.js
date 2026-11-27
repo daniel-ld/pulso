@@ -1,7 +1,7 @@
 const CACHE = 'pulso-shell-v1';
 const ASSETS = /*__ASSETS__*/[];
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/icon.svg', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest', ...ASSETS])));
+  event.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/theme-init.js', '/icon.svg', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest', ...ASSETS])));
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('pulso-') && k !== CACHE).map(k => caches.delete(k)))));
@@ -13,7 +13,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(event.request).then(response => {
       if (response.ok) { const copy = response.clone(); void caches.open(CACHE).then(c => c.put('/', copy)); } return response;
     }).catch(() => caches.match('/')));
-  } else if (url.pathname.startsWith('/assets/')) {
+  } else if (url.pathname.startsWith('/assets/') || url.pathname === '/theme-init.js') {
     event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
       if (response.ok) { const copy = response.clone(); void caches.open(CACHE).then(c => c.put(event.request, copy)); } return response;
     })));

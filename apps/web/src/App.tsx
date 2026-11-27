@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -34,6 +35,8 @@ import {
   SlidersHorizontal,
   Sparkles,
   Sun,
+  Moon,
+  Monitor,
   Tag,
   Trash2,
   Upload,
@@ -71,6 +74,7 @@ import {
   type SyncState,
   type User,
 } from "./store";
+import { getThemePreference, setThemePreference, subscribeTheme } from "./theme";
 
 type TaskEntity = Entity<Task>;
 type View = {
@@ -1054,7 +1058,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
                   <div
                     className="progress-ring"
                     style={{
-                      background: `conic-gradient(#7451df ${todayTasks.length ? (finished / todayTasks.length) * 360 : 0}deg, #eae5f6 0deg)`,
+                      background: `conic-gradient(var(--accent) ${todayTasks.length ? (finished / todayTasks.length) * 360 : 0}deg, var(--soft) 0deg)`,
                     }}
                   >
                     <div>
@@ -2064,6 +2068,7 @@ function Settings({
   onNotice: (s: string) => void;
   onLogout: () => Promise<void>;
 }) {
+  const theme = useSyncExternalStore(subscribeTheme, getThemePreference);
   const [busy, setBusy] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   useEffect(() => {
@@ -2161,6 +2166,32 @@ function Settings({
           </div>
           <span className="personal-badge">PERSONAL</span>
         </div>
+        <fieldset className="theme-picker">
+          <legend>Apariencia</legend>
+          <p>Elige cómo se ve Pulso en este dispositivo.</p>
+          <div className="theme-options">
+            {([
+              ["light", "Claro", Sun],
+              ["dark", "Oscuro", Moon],
+              ["system", "Sistema", Monitor],
+            ] as const).map(([value, label, Icon]) => (
+              <label className="theme-option" key={value}>
+                <input
+                  type="radio"
+                  name="theme"
+                  value={value}
+                  checked={theme === value}
+                  onChange={() => setThemePreference(value)}
+                />
+                <Icon size={20} aria-hidden="true" />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+          <small>
+            Sistema sigue automáticamente la apariencia de tu dispositivo.
+          </small>
+        </fieldset>
         <h3>Datos y respaldos</h3>
         <p>
           La sincronización mantiene tus dispositivos al día. Un respaldo te
