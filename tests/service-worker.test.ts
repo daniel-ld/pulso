@@ -2,104 +2,109 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-
 const script = readFileSync(
   new URL("../apps/web/public/sw.js", import.meta.url),
   "utf8",
 );
-function worker(network: () => Promise<any>) {
+function worker(urls: string[] = []) {
   const handlers = new Map<string, (event: any) => void>();
-  const writes: string[] = [];
-  let requests = 0;
-  let fallbacks = 0;
+  const deleted: string[] = [],
+    navigated: string[] = [],
+    notifications: any[] = [];
+  let skipped = 0,
+    claimed = 0;
   runInNewContext(script, {
     URL,
-    Response,
+    caches: {
+      keys: async () => ["pulso-shell-old", "pulso-shell-v1", "other-app"],
+      delete: async (key: string) => deleted.push(key),
+    },
     self: {
       location: { origin: "https://pulso.test" },
+      skipWaiting: async () => {
+        skipped++;
+      },
+      clients: {
+        claim: async () => {
+          claimed++;
+        },
+        matchAll: async () =>
+          urls.map((url) => ({
+            url,
+            navigate: async (target: string) => navigated.push(target),
+          })),
+      },
+      registration: {
+        showNotification: async (...args: any[]) => notifications.push(args),
+      },
       addEventListener: (name: string, handler: any) =>
         handlers.set(name, handler),
     },
-    fetch: async () => {
-      requests++;
-      return network();
-    },
-    caches: {
-      open: async () => ({
-        put: async (key: string) => {
-          writes.push(key);
-        },
-      }),
-      match: async () => {
-        fallbacks++;
-        return new Response("offline task shell");
-      },
-    },
   });
   return {
-    navigate(path: string) {
-      let response: Promise<Response> | undefined;
-      handlers.get("fetch")!({
-        request: {
-          url: "https://pulso.test" + path,
-          method: "GET",
-          mode: "navigate",
-        },
-        respondWith: (value: Promise<Response>) => {
-          response = value;
+    handlers,
+    deleted,
+    navigated,
+    notifications,
+    stats: () => ({ skipped, claimed }),
+    async emit(name: string, props = {}) {
+      let pending;
+      handlers.get(name)!({
+        ...props,
+        waitUntil: (promise: any) => {
+          pending = promise;
         },
       });
-      return response;
+      await pending;
     },
-    stats: () => ({ requests, fallbacks, writes }),
   };
 }
-
-test("el service worker no intercepta OAuth, MCP, metadata ni páginas de consentimiento", () => {
-  const sw = worker(async () => {
-    throw new Error("offline");
-  });
-  for (const path of [
-    "/oauth/authorize?state=test",
-    "/oauth/register",
-    "/oauth/token",
-    "/oauth/revoke",
-    "/mcp",
-    "/mcp/",
-    "/.well-known/oauth-authorization-server",
-    "/.well-known/oauth-protected-resource",
-    "/api/auth/mcp-start",
-    "/connect/mcp?connect=test",
-    "/?connect=legacy",
-  ]) {
-    assert.equal(
-      sw.navigate(path),
-      undefined,
-      path + " must reach the network directly",
-    );
-  }
-  assert.deepEqual(sw.stats(), { requests: 0, fallbacks: 0, writes: [] });
+test("el worker no intercepta ni almacena ninguna petición, incluyendo OAuth y assets", () => {
+  assert.equal(worker().handlers.has("fetch"), false);
 });
-
-test("una redirección de navegación conserva Location y no se guarda como shell de tareas", async () => {
-  const target = "https://pulso.test/connect/mcp?connect=destination";
-  const sw = worker(async () => ({
-    redirected: true,
-    url: target,
-    ok: true,
-    clone: () => new Response("consent HTML"),
-  }));
-  const response = await sw.navigate("/redirecting-page")!;
-  assert.equal(response.status, 302);
-  assert.equal(response.headers.get("Location"), target);
-  assert.deepEqual(sw.stats(), { requests: 1, fallbacks: 0, writes: [] });
+test("reemplaza workers antiguos sin esperar al cierre y borra únicamente cachés Pulso", async () => {
+  const sw = worker();
+  await sw.emit("install");
+  await sw.emit("activate");
+  assert.deepEqual(sw.stats(), { skipped: 1, claimed: 1 });
+  assert.deepEqual(sw.deleted, ["pulso-shell-old", "pulso-shell-v1"]);
 });
-
-test("la app normal conserva su fallback offline sin usarlo para autenticación", async () => {
-  const sw = worker(async () => {
-    throw new Error("offline");
+test("recupera ventanas OAuth preservando PKCE/state, sin recargar editores ni entrar en bucle", async () => {
+  const sw = worker([
+    "https://pulso.test/",
+    "https://pulso.test/oauth/authorize?state=a%2Bb&code_challenge=pkce",
+    "https://pulso.test/connect/mcp?connect=id",
+    "https://pulso.test/?connect=legacy",
+    "https://pulso.test/connect/mcp?connect=id&__pulso_build=development",
+    "https://other.test/?connect=id",
+  ]);
+  await sw.emit("activate");
+  assert.equal(sw.navigated.length, 3);
+  const target = new URL(sw.navigated[0]);
+  assert.equal(target.searchParams.get("state"), "a+b");
+  assert.equal(target.searchParams.get("code_challenge"), "pkce");
+  assert.equal(target.searchParams.get("__pulso_build"), "development");
+});
+test("la recuperación verifica que está activo el worker sin caché y conserva push", async () => {
+  const sw = worker();
+  let result: any;
+  await sw.emit("message", {
+    data: { type: "PULSO_VERSION" },
+    ports: [
+      {
+        postMessage: (data: any) => {
+          result = data;
+        },
+      },
+    ],
   });
-  const response = await sw.navigate("/")!;
-  assert.equal(await response.text(), "offline task shell");
-  assert.deepEqual(sw.stats(), { requests: 1, fallbacks: 1, writes: [] });
+  assert.equal(result.cacheEnabled, false);
+  assert.equal(result.build, "development");
+  await sw.emit("push", {
+    data: {
+      json: () => ({ title: "Mi tarea", body: "Ahora", taskId: "task" }),
+    },
+  });
+  assert.equal(sw.notifications[0][0], "Mi tarea");
+  assert.equal(sw.notifications[0][1].tag, "task");
 });

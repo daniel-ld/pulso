@@ -2299,6 +2299,14 @@ function Settings({
           <Bell size={17} />{" "}
           {pushEnabled ? "Desactivar avisos aquí" : "Activar avisos aquí"}
         </button>
+        <h3>Actualizar Pulso</h3>
+        <p>
+          Si ves una versión anterior, actualiza la aplicación sin borrar tus
+          tareas, cambios pendientes ni sesión. Abrir Pulso requiere conexión.
+        </p>
+        <a className="secondary" href="/refresh">
+          Actualizar aplicación
+        </a>
         <h3>Instala Pulso</h3>
         <p>
           En Safari para Mac: Archivo → Añadir al Dock. En iPhone: Compartir →

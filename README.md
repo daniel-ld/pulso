@@ -77,7 +77,7 @@ Filtros: `hoy & p1`, `vencidas | p2`, `!p1 & texto:leer`, `sin fecha`, `proyecto
 
 La cuenta se crea una sola vez; no hay registro público. Las sesiones usan cookies HttpOnly y Secure en producción, con expiración a 30 días. El almacenamiento local es específico de la cuenta. Sin conexión puedes seguir usando un espacio previamente abierto. Si la sesión expira, vuelve a iniciar sesión con la misma cuenta para enviar los cambios: no borres los datos del navegador.
 
-Los recordatorios Web Push están implementados como función opcional. Requieren claves VAPID, un destino de contacto y permiso del navegador; consulta la configuración en docs/COOLIFY.md. Las tipografías y los iconos se sirven desde la propia aplicación, también sin conexión.
+Los recordatorios Web Push están implementados como función opcional. Requieren claves VAPID, un destino de contacto y permiso del navegador; consulta la configuración en docs/COOLIFY.md. Las tipografías y los iconos se sirven desde la propia aplicación. El arranque requiere conexión: no se cachea el código de la PWA. Las tareas y la cola de cambios siguen en IndexedDB. Consulta [Actualizaciones](docs/UPDATES.md).
 
 En Ajustes puedes exportar un respaldo JSON versionado que incluye registros, operaciones pendientes y alternativas de conflictos. La restauración combina los registros con la misma cuenta; no borra otros elementos. Consulta las limitaciones detalladas en [la arquitectura](docs/ARCHITECTURE.md).
 

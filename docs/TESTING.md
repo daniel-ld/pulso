@@ -4,21 +4,21 @@ Fecha: 26 de noviembre de 2026. Entorno: Mac ARM64, Docker Desktop, Node.js 24 d
 
 ## Resultados
 
-| Comprobación | Resultado |
-| --- | --- |
-| TypeScript en API y web | Correcto |
-| Build de API y web | Correcto en host y Docker |
-| Pruebas de dominio | 6 correctas |
-| Pruebas de integración con PostgreSQL desechable | 9 correctas |
-| Login y creación de tarea desde navegador | Correcto |
-| Detectar mañana y P2, completar y deshacer | Correcto |
-| Lista, tablero y calendario | Revisados visualmente |
-| Interfaz en viewport móvil | Revisada, sin desbordamiento horizontal en la medición DOM |
-| Consola de la app durante revisión | Sin errores |
-| pg_dump y restauración en base independiente | Correcto: 1 cuenta, 8 tareas, esquema 2 |
-| Puertos publicados localmente | Solo 127.0.0.1:4173 de web |
-| Compose de Coolify | Validado sin desplegar |
-| Web Push real y PWA en teléfono físico | Pendientes de HTTPS y dispositivos reales |
+| Comprobación                                     | Resultado                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------- |
+| TypeScript en API y web                          | Correcto                                                   |
+| Build de API y web                               | Correcto en host y Docker                                  |
+| Pruebas de dominio                               | 6 correctas                                                |
+| Pruebas de integración con PostgreSQL desechable | 9 correctas                                                |
+| Login y creación de tarea desde navegador        | Correcto                                                   |
+| Detectar mañana y P2, completar y deshacer       | Correcto                                                   |
+| Lista, tablero y calendario                      | Revisados visualmente                                      |
+| Interfaz en viewport móvil                       | Revisada, sin desbordamiento horizontal en la medición DOM |
+| Consola de la app durante revisión               | Sin errores                                                |
+| pg_dump y restauración en base independiente     | Correcto: 1 cuenta, 8 tareas, esquema 2                    |
+| Puertos publicados localmente                    | Solo 127.0.0.1:4173 de web                                 |
+| Compose de Coolify                               | Validado sin desplegar                                     |
+| Web Push real y PWA en teléfono físico           | Pendientes de HTTPS y dispositivos reales                  |
 
 ## Cobertura de integración
 
@@ -38,4 +38,4 @@ npm run build
 docker compose --profile test stop test-db
 ```
 
-Después del despliegue real hay que probar en Mac y teléfono: instalación, permisos push, edición sin conexión tras reiniciar, reconexión, conflictos y restauración. No se marca esa parte como verificada por haber pasado las pruebas locales.
+Después del despliegue real hay que probar en Mac y teléfono: instalación, permisos push, edición sin conexión con la app ya abierta (el arranque requiere red), reconexión, conflictos y restauración. No se marca esa parte como verificada por haber pasado las pruebas locales.

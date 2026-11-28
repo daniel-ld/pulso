@@ -63,23 +63,23 @@ El JSON es un ejemplo; sustituye el marcador de forma privada en el cliente, nun
 
 ## Herramientas
 
-| Herramienta | Función |
-| --- | --- |
-| `pulso_list_tasks` | Tareas pendientes o completadas, filtros por proyecto, etiqueta, padre, prioridad, texto y rango de fechas; paginación por UUID |
-| `pulso_list_projects` | Proyectos (incluidos los archivados), IDs y versiones; hasta 500 |
-| `pulso_list_labels` | Etiquetas, IDs y versiones; hasta 500 |
-| `pulso_list_sections` | Secciones, opcionalmente por proyecto; hasta 500 |
-| `search` | Buscar hasta 50 registros por texto, con IDs y enlaces |
-| `fetch` | Obtener un registro completo por UUID, versión y estado de papelera |
-| `pulso_create_task` | Crear tarea o subtarea; usa la bandeja si se omite proyecto |
-| `pulso_update_task` | Cambiar solo los campos indicados |
-| `pulso_complete_task` | Completar y avanzar recurrencia según la zona horaria |
-| `pulso_reopen_task` | Reabrir sin retroceder una recurrencia |
-| `pulso_save_project` | Crear o editar un proyecto |
-| `pulso_save_label` | Crear o editar una etiqueta |
-| `pulso_save_section` | Crear o editar una sección |
-| `pulso_move_to_trash` | Borrado recuperable de un registro, respetando dependencias |
-| `pulso_restore_record` | Recuperar un registro de la papelera |
+| Herramienta            | Función                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `pulso_list_tasks`     | Tareas pendientes o completadas, filtros por proyecto, etiqueta, padre, prioridad, texto y rango de fechas; paginación por UUID |
+| `pulso_list_projects`  | Proyectos (incluidos los archivados), IDs y versiones; hasta 500                                                                |
+| `pulso_list_labels`    | Etiquetas, IDs y versiones; hasta 500                                                                                           |
+| `pulso_list_sections`  | Secciones, opcionalmente por proyecto; hasta 500                                                                                |
+| `search`               | Buscar hasta 50 registros por texto, con IDs y enlaces                                                                          |
+| `fetch`                | Obtener un registro completo por UUID, versión y estado de papelera                                                             |
+| `pulso_create_task`    | Crear tarea o subtarea; usa la bandeja si se omite proyecto                                                                     |
+| `pulso_update_task`    | Cambiar solo los campos indicados                                                                                               |
+| `pulso_complete_task`  | Completar y avanzar recurrencia según la zona horaria                                                                           |
+| `pulso_reopen_task`    | Reabrir sin retroceder una recurrencia                                                                                          |
+| `pulso_save_project`   | Crear o editar un proyecto                                                                                                      |
+| `pulso_save_label`     | Crear o editar una etiqueta                                                                                                     |
+| `pulso_save_section`   | Crear o editar una sección                                                                                                      |
+| `pulso_move_to_trash`  | Borrado recuperable de un registro, respetando dependencias                                                                     |
+| `pulso_restore_record` | Recuperar un registro de la papelera                                                                                            |
 
 Las escrituras exigen `requestId` de 8–128 caracteres (por ejemplo, un UUID). El cliente conserva esa clave en un reintento y genera otra para una acción diferente. Editar, completar, borrar o recuperar exige `expectedVersion`, obtenida por consulta: una versión antigua produce un error en vez de sobrescribir cambios recientes. Para crear con `pulso_save_*`, se omite ID y se envían los campos requeridos.
 
@@ -114,6 +114,6 @@ La primera implementación enviaba la solicitud al inicio de la app y mostraba e
 
 La pantalla de conexión no abre IndexedDB ni sincroniza las tareas de la app, y no usa una identidad local guardada cuando falla el servidor. Para autenticarse y autorizar solo necesita la sesión del backend, de modo que la conexión no depende del almacenamiento offline del navegador que abrió el asistente.
 
-Las rutas del protocolo y del consentimiento se excluyen de la caché y del fallback offline. Para instalaciones con un service worker anterior, `/oauth/authorize` puede recuperar la solicitud mediante `/api/auth/mcp-start`, conservando cliente, callback, state y PKCE, sin abrir “Hoy” ni conceder acceso automáticamente. Diagnóstico del caso Muse y evidencia: [OAUTH_DIAGNOSTIC.md](OAUTH_DIAGNOSTIC.md).
+La aplicación completa se sirve sin caché de HTTP ni del service worker; este se conserva solo para Web Push. Si una instalación antigua sigue mostrando “Hoy”, abrir `/refresh` en esa misma PWA o navegador antes de iniciar una conexión nueva. Ver [UPDATES.md](UPDATES.md). Para instalaciones con un service worker anterior, `/oauth/authorize` puede recuperar la solicitud mediante `/api/auth/mcp-start`, conservando cliente, callback, state y PKCE, sin abrir “Hoy” ni conceder acceso automáticamente. Diagnóstico del caso Muse y evidencia: [OAUTH_DIAGNOSTIC.md](OAUTH_DIAGNOSTIC.md).
 
 Referencia técnica: [autorización MCP](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization), [SDK TypeScript oficial](https://github.com/modelcontextprotocol/typescript-sdk).

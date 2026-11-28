@@ -12,10 +12,15 @@ const digest = createHash("sha256")
   .update(await readFile(new URL("theme-init.js", root)))
   .digest("hex")
   .slice(0, 12);
+if (!/\/\*__BUILD__\*\/\s*"development"/.test(script))
+  throw new Error("Missing worker build marker");
 script = script.replace(
-  "'pulso-shell-v1'",
-  JSON.stringify("pulso-shell-" + digest),
+  /\/\*__BUILD__\*\/\s*"development"/,
+  JSON.stringify(digest),
 );
-script = script.replace("/*__ASSETS__*/[]", JSON.stringify(assets));
 await writeFile(path, script);
-console.log("Service worker precaches the exact built JavaScript and CSS.");
+console.log(
+  "Push-only service worker build " +
+    digest +
+    "; application caching disabled.",
+);

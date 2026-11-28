@@ -8,6 +8,7 @@ RUN npm ci
 COPY . .
 RUN npm run build -w @pulso/web
 FROM nginx:1.28-alpine
+COPY infra/web-headers.conf /etc/nginx/web-headers.conf
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 80

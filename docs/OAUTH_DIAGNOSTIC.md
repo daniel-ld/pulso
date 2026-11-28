@@ -12,9 +12,10 @@ La distinción entre URL de respuesta y URL de navegación está documentada en 
 
 ## Corrección
 
-- El service worker deja al navegador/red gestionar `/oauth/*`, `/mcp`, `/.well-known/*`, `/api/*` y las páginas de consentimiento. No usa el shell offline de tareas para ellas.
-- Para otras navegaciones, si la red redirige, el worker devuelve una redirección explícita en vez de guardar su HTML bajo `/`.
-- La versión de caché considera también el contenido del worker y del arranque de tema, no solo los nombres de assets.
+- El service worker ya no intercepta ninguna petición ni precachea archivos. Deja al navegador/red gestionar `/oauth/*`, `/mcp`, `/.well-known/*`, `/api/*` y las páginas de consentimiento. No usa el shell offline de tareas para ellas.
+- La corrección anterior no migraba inmediatamente los workers activos: podían quedar esperando mientras había ventanas abiertas. El nuevo worker usa `skipWaiting` y `clients.claim`, elimina solo cachés `pulso-*` y recarga únicamente ventanas OAuth con un identificador de build, conservando los parámetros y evitando bucles.
+- Todos los documentos y assets salen con `no-store`, incluidas directivas para CDN. El registro usa `updateViaCache: none` y busca actualizaciones al volver a la app.
+- `/refresh` es una página independiente de React para recuperar instalaciones antiguas. Verifica la versión del worker mediante MessageChannel antes de abrir el espacio. No borra IndexedDB, preferencias, cookies ni el registro de push. Detalle: [UPDATES.md](UPDATES.md).
 - Nginx separa los prefijos completos OAuth, MCP y well-known del fallback SPA.
 - Si una PWA con el worker antiguo entrega el frontend bajo `/oauth/authorize`, el frontend ya no puede mostrar “Hoy”: recupera los parámetros mediante `GET /api/auth/mcp-start` y navega a la pantalla dedicada.
 - La recuperación reutiliza la validación del endpoint normal: cliente registrado, retorno exacto, scopes, recurso y PKCE S256. Conserva `state` y no concede acceso. `/api` ya era network-only con el worker anterior.
@@ -22,24 +23,24 @@ La distinción entre URL de respuesta y URL de navegación está documentada en 
 
 ## Matriz de comprobación
 
-| Punto | Resultado requerido/verificado |
-| --- | --- |
-| Metadata AS y protected resource | JSON con origen, recurso, scopes y endpoints correctos |
-| Registro dinámico | 201 JSON con client ID; métodos none, client_secret_post y client_secret_basic |
-| Authorize válido | 302 a `/connect/mcp?connect=…`, seguido de pantalla de login/consentimiento |
-| Sin sesión | Login propio; la solicitud continúa después, sin autorización implícita |
-| Autorizar | Callback registrado con código de un uso y el mismo `state` |
-| Denegar | Callback registrado con `error=access_denied`, mismo `state` y sin código |
-| Token | JSON con bearer, vencimiento y scope; exige el verificador PKCE correcto |
-| Revocar | 200 para el cliente autenticado; invalida solicitudes posteriores |
-| MCP sin token | 401 con descubrimiento en `WWW-Authenticate` |
-| MCP con token | Cliente SDK oficial negocia el protocolo y obtiene herramientas |
+| Punto                            | Resultado requerido/verificado                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| Metadata AS y protected resource | JSON con origen, recurso, scopes y endpoints correctos                         |
+| Registro dinámico                | 201 JSON con client ID; métodos none, client_secret_post y client_secret_basic |
+| Authorize válido                 | 302 a `/connect/mcp?connect=…`, seguido de pantalla de login/consentimiento    |
+| Sin sesión                       | Login propio; la solicitud continúa después, sin autorización implícita        |
+| Autorizar                        | Callback registrado con código de un uso y el mismo `state`                    |
+| Denegar                          | Callback registrado con `error=access_denied`, mismo `state` y sin código      |
+| Token                            | JSON con bearer, vencimiento y scope; exige el verificador PKCE correcto       |
+| Revocar                          | 200 para el cliente autenticado; invalida solicitudes posteriores              |
+| MCP sin token                    | 401 con descubrimiento en `WWW-Authenticate`                                   |
+| MCP con token                    | Cliente SDK oficial negocia el protocolo y obtiene herramientas                |
 
 La prueba de ejemplo con `client_id=TEST` y sin `code_challenge`/`code_challenge_method` debe fallar; no debe mostrar consentimiento ni crear un código. Para una prueba válida hay que registrar primero el cliente y enviar PKCE S256. No se relajó este requisito para adaptar la prueba.
 
 ## Evidencia automatizada
 
-- 11 pruebas de dominio, tema y service worker.
+- 12 pruebas de dominio, tema y service worker.
 - 18 pruebas de integración sobre PostgreSQL desechable.
 - El recorrido nuevo usa exactamente `https://agent.meta.ai/api/hatch/oauth/callback`, conserva un `state` con caracteres especiales, autoriza, intercambia el código y llama al MCP mediante el SDK oficial. También comprueba denegación, PKCE ausente y retorno no registrado.
 - Ese callback se comprobó como destino en las respuestas de la base de pruebas: no se hicieron peticiones a Meta ni se autorizó una cuenta externa.

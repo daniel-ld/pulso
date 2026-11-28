@@ -4,13 +4,13 @@ Fecha de inicio: 26 de noviembre de 2026. Proyecto: Pulso. Repositorio acordado:
 
 ## Estado de etapas
 
-| Etapa | Entregable | Estado |
-| --- | --- | --- |
-| 1 | Monorepo, contratos y arquitectura de un subdominio | Implementada |
-| 2 | Cuenta personal, tareas, proyectos, secciones, subtareas, etiquetas y repeticiones | Implementada y probada localmente |
-| 3 | IndexedDB, cola offline, idempotencia, conflictos, respaldo y papelera | Implementada y probada con PostgreSQL aislado |
-| 4 | Lista, tablero, calendario, búsqueda, filtros y PWA | Implementada y revisada en escritorio y tamaño móvil |
-| 5 | Docker, pruebas aisladas y guía de Coolify | Docker y pruebas correctos; despliegue remoto pendiente |
+| Etapa | Entregable                                                                         | Estado                                                  |
+| ----- | ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 1     | Monorepo, contratos y arquitectura de un subdominio                                | Implementada                                            |
+| 2     | Cuenta personal, tareas, proyectos, secciones, subtareas, etiquetas y repeticiones | Implementada y probada localmente                       |
+| 3     | IndexedDB, cola offline, idempotencia, conflictos, respaldo y papelera             | Implementada y probada con PostgreSQL aislado           |
+| 4     | Lista, tablero, calendario, búsqueda, filtros y PWA                                | Implementada y revisada en escritorio y tamaño móvil    |
+| 5     | Docker, pruebas aisladas y guía de Coolify                                         | Docker y pruebas correctos; despliegue remoto pendiente |
 
 ## Decisiones
 
@@ -102,3 +102,9 @@ El flujo de conexión MCP se separó también del arranque de IndexedDB y de la 
 Contrastado el checklist de Muse: en producción los endpoints sí llegaban al backend; la llamada de prueba sin cliente válido/PKCE devolvía JSON 400. Se aisló OAuth/MCP/well-known/consentimiento del service worker y del fallback SPA, se preservaron redirecciones de navegación y se añadió recuperación para instalaciones que aún usan el worker anterior. Una URL técnica ya no puede terminar mostrando “Hoy” si recibe el frontend por un intermediario antiguo.
 
 29 pruebas correctas (11 de dominio/tema/worker y 18 de integración), incluidos callback exacto de Muse, state, PKCE, código → token → MCP y denegación. Builds e imágenes Docker correctos. Detalle de evidencia, límites y comprobaciones: [OAUTH_DIAGNOSTIC.md](OAUTH_DIAGNOSTIC.md). Ninguna cuenta externa ni token de producción se autorizó durante las pruebas.
+
+## 27 de noviembre — Retirada de caché PWA y migración activa
+
+Ante otra captura con “Hoy” bajo `/oauth/authorize`, se elimina el caché del shell completo. El worker anterior podía seguir activo o esperando mientras existieran ventanas abiertas; excluir rutas no bastaba para actualizar esas instalaciones. Ahora el worker es solo push, activa inmediatamente, elimina únicamente cachés Pulso y recupera ventanas OAuth sin recargar editores normales. Nginx sirve todo con no-store. Página independiente `/refresh` y acceso desde Ajustes, con verificación de versión y reintento. IndexedDB, cola pendiente, sesión y suscripción push se conservan. El arranque requiere conexión; esto sustituye las referencias históricas de este documento al shell offline. Véase [UPDATES.md](UPDATES.md).
+
+Validación: 12 pruebas unitarias, typecheck y build correctos; imagen Docker y `nginx -t` correctos. Recuperación real en navegador local completada hasta `/?__pulso_build=…`, con sesión y tareas presentes. Comprobados encabezados no-store para HTML, worker, script de recuperación, bundle y manifiesto, CSP conservada y Clear-Site-Data limitado a cache. La sesión concreta de Muse sigue requiriendo autorización del propietario.
